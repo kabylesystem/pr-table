@@ -1,0 +1,45 @@
+.cols, .agents, .bar { position: relative; z-index: 1; }
+.col.next { position: relative; }
+.figs { position: absolute; left: 0; bottom: 0; display: none; align-items: flex-end; gap: 0; pointer-events: none; z-index: -1; }
+.figs img { display: block; height: 100%; width: auto; }
+html[data-look] .figs { display: flex; }
+
+html[data-look="1"] .brand { font-family: "Monoton", sans-serif; font-size: 92px; letter-spacing: .06em; color: #e6ffb8;
+  text-shadow: 0 0 6px #fff, 0 0 18px #a3e635, 0 0 42px #a3e635, 0 0 90px #a3e63599; animation: neon 6s infinite; }
+@keyframes neon { 0%, 18%, 22%, 60%, 64%, 100% { opacity: 1; } 19%, 21%, 62% { opacity: .35; } 20% { opacity: .1; } }
+html[data-look="1"] .figs { gap: 10px; filter: drop-shadow(0 0 22px #a3e63566); -webkit-box-reflect: below 2px linear-gradient(transparent 80%, #ffffff26); bottom: 0; }
+
+html[data-look="2"] body { grid-template-rows: 1fr auto auto; }
+html[data-look="2"] .brand { position: fixed; left: -40px; top: 50%; transform: translateY(-50%) rotate(-7deg); font-family: "Unbounded", sans-serif; font-weight: 900; font-size: 330px; line-height: .9; letter-spacing: -12px; color: transparent; -webkit-text-stroke: 2px #a3e6352e; white-space: nowrap; z-index: 0; padding: 0; animation: drift 30s linear infinite alternate; }
+@keyframes drift { to { transform: translateY(-50%) translateX(-260px) rotate(-7deg); } }
+html[data-look="2"] .cols { padding-top: 64px; }
+html[data-look="2"] .figs { filter: grayscale(1) brightness(1.15) sepia(1) hue-rotate(40deg) saturate(3.4) contrast(1.05); opacity: .9; }
+html[data-look="2"] .figs img + img { margin-left: -60px; }
+
+html[data-look="3"] .brand { font-family: "Major Mono Display", monospace; font-size: 96px; color: #e9eef3; position: relative; letter-spacing: .02em; }
+html[data-look="3"] .brand span { position: relative; display: inline-block; }
+html[data-look="3"] .brand span::before, html[data-look="3"] .brand span::after { content: attr(data-text); position: absolute; inset: 0; }
+html[data-look="3"] .brand span::before { color: #ff2e88; animation: glitch-a 2.4s steps(1) infinite; mix-blend-mode: screen; }
+html[data-look="3"] .brand span::after { color: #22d3ee; animation: glitch-b 3.1s steps(1) infinite; mix-blend-mode: screen; }
+@keyframes glitch-a { 0%, 86%, 100% { transform: none; clip-path: inset(0 0 0 0); opacity: .0; } 88% { transform: translate(-6px, 2px); clip-path: inset(10% 0 55% 0); opacity: 1; } 91% { transform: translate(5px, -3px); clip-path: inset(60% 0 8% 0); opacity: 1; } 94% { transform: translate(-3px, 0); clip-path: inset(30% 0 40% 0); opacity: 1; } }
+@keyframes glitch-b { 0%, 80%, 100% { transform: none; clip-path: inset(0 0 0 0); opacity: 0; } 82% { transform: translate(6px, -2px); clip-path: inset(45% 0 20% 0); opacity: 1; } 85% { transform: translate(-5px, 3px); clip-path: inset(5% 0 70% 0); opacity: 1; } }
+html[data-look="3"] .figs { filter: grayscale(1) contrast(1.6) brightness(1.2) sepia(1) hue-rotate(40deg) saturate(4);
+  -webkit-mask-image: radial-gradient(circle, #000 52%, transparent 54%); -webkit-mask-size: 7px 7px; mask-image: radial-gradient(circle, #000 52%, transparent 54%); mask-size: 7px 7px; }
+html[data-look="3"] .figs img + img { margin-left: -40px; }
+
+html[data-look="4"] .brand { display: flex; align-items: flex-end; gap: 8px; font-size: 0; }
+html[data-look="4"] .tile { position: relative; width: 92px; height: 126px; background: linear-gradient(#161b22 50%, #10141a 50%); border: 1px solid #ffffff14; border-radius: 6px; display: grid; place-items: center; font-family: "Geist Mono", monospace; font-weight: 400; font-size: 92px; color: #ffc23d; perspective: 300px; }
+html[data-look="4"] .tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid #05070a; }
+html[data-look="4"] .tile.gap { background: none; border: 0; width: 34px; }
+html[data-look="4"] .tile.flip { animation: tile .5s ease-in; }
+@keyframes tile { 50% { transform: rotateX(-90deg); } }
+html[data-look="4"] .brand .travellers { display: flex; align-items: flex-end; height: 190px; margin-left: 34px; margin-bottom: -6px; }
+html[data-look="4"] .brand .travellers img { height: 100%; }
+html[data-look="4"] .figs { display: none; }
+
+html[data-look="5"] .brand { font-family: "Bungee", sans-serif; font-size: 104px; color: #c8ff5a; transform: skew(-9deg); transform-origin: left bottom; letter-spacing: .02em;
+  text-shadow: 1px 1px 0 #8fcc2f, 2px 2px 0 #84bd2a, 3px 3px 0 #79ad25, 4px 4px 0 #6e9e21, 5px 5px 0 #638f1c, 6px 6px 0 #588018, 7px 7px 0 #4d7114, 8px 8px 0 #426210, 10px 12px 26px #000c, 0 0 60px #a3e63540; }
+html[data-look="5"] .figs { gap: 4px; }
+html[data-look="5"] .figs img { filter: drop-shadow(0 0 2px #a3e635) drop-shadow(0 0 18px #a3e63555); animation: bob 3.2s ease-in-out infinite; transform-origin: bottom center; }
+html[data-look="5"] .figs img:first-child { transform: rotate(-5deg); animation-delay: -1.6s; }
+@keyframes bob { 50% { translate: 0 -10px; } }

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en" data-default-look="5" data-default-fig="4">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR Table</title>
+<link rel="icon" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@200;300;400&family=Bungee&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #05070a; --ink: #e9eef3; --dim: #4b5663; --line: #ffffff12; --neon: #a3e635; --reviewer: #ff9a5a; }
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: "Geist Mono", monospace; font-weight: 200; }
+body { overflow: hidden; display: grid; grid-template-rows: auto 1fr auto auto; cursor: none; }
+.brand { padding: 44px clamp(16px, 4vw, 88px) 0; font-size: 64px; line-height: 1; color: var(--ink); font-weight: 400; }
+.cols { display: grid; grid-template-columns: 1fr 1.3fr 1fr; padding: 40px clamp(16px, 4vw, 88px) 0; min-height: 0; overflow: hidden; }
+.col { padding: 0 40px; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.col:first-child { border-left: 0; padding-left: 0; }
+.col h2 { font-family: "Bungee", sans-serif; font-size: 40px; font-weight: 400; color: #7fbf2a; transform: skew(-9deg); transform-origin: left bottom; letter-spacing: .02em; margin-bottom: 24px;
+  text-shadow: 1px 1px 0 #5f9420, 2px 2px 0 #527f1b, 3px 3px 0 #456b16, 4px 5px 10px #000a; }
+.n .ask, .n .party-tag { font-size: .42em; letter-spacing: 0; }
+.bar .sync { margin-left: auto; font-size: 24px; color: var(--dim); white-space: nowrap; flex: none; }
+.bar .sync.stale { color: #ff4d4d; }
+.n { font-size: var(--n, 112px); line-height: 1.02; letter-spacing: -4px; display: flex; align-items: center; gap: 24px; transition: color .4s, text-shadow .4s; animation: arrive .6s ease-out; }
+@keyframes arrive { from { opacity: 0; transform: translateY(16px); } }
+.n small { white-space: nowrap; font-size: 30px; letter-spacing: 0; font-weight: 300; display: inline-flex; align-items: flex-end; gap: 10px; }
+.n small .mini { height: 58px; width: auto; filter: drop-shadow(0 0 10px #ff9a5a55); }
+.alert .who { display: flex; align-items: flex-end; gap: 40px; }
+.alert .who img { height: 300px; width: auto; filter: drop-shadow(0 0 30px #ff9a5a66); }
+.next .n { color: transparent; -webkit-text-stroke: 1.5px #6b7785; }
+.review .n { font-weight: 300; }
+.review .n.draft { color: var(--dim); }
+.review .n.paused { color: var(--dim); opacity: .35; text-decoration: line-through; text-decoration-thickness: 3px; }
+.review .n.approved small, .review .n.changes small { color: var(--neon); }
+.review .n.fix small, .review .n.waiting small, .review .n.decides small { color: var(--dim); }
+.review .n.ask { color: #ff3b3b; text-shadow: 0 0 40px #ff3b3b77; }
+.review .n.ask small { color: #ff3b3b; font-size: 38px; font-weight: 400; animation: nudge 1.6s ease-in-out infinite; }
+@keyframes nudge { 50% { transform: translateX(10px); } }
+.review .n.waiting small { color: var(--dim); }
+.review .n.hot { color: var(--neon); text-shadow: 0 0 40px #a3e63560; }
+.review .n.hot::after { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 18px var(--neon); animation: blink 1s steps(2) infinite; }
+.merged .n { color: var(--neon); opacity: .45; }
+@keyframes blink { 50% { opacity: .15; } }
+.agents { display: flex; flex-direction: column; gap: 6px; padding: 0 clamp(16px, 4vw, 88px) 18px; }
+.agent { display: grid; grid-template-columns: 22px minmax(0, max-content) minmax(0, 1fr); align-items: baseline; gap: 22px; font-size: 28px; font-weight: 300; white-space: nowrap; }
+.agent .spin { width: 22px; color: var(--neon); }
+.agent .what { color: var(--ink); overflow: hidden; text-overflow: ellipsis; max-width: 46vw; }
+.agent .now { color: var(--dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.bar { display: flex; align-items: center; gap: 28px; padding: 30px clamp(16px, 4vw, 88px) 40px; border-top: 1px solid var(--line); font-size: 34px; font-weight: 300; }
+.bar .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--neon); box-shadow: 0 0 16px var(--neon); animation: blink 1s steps(2) infinite; flex: none; }
+.bar.idle .dot { background: var(--dim); box-shadow: none; animation: none; }
+.bar.idle .doing { color: var(--dim); }
+.bar .ref { color: var(--neon); font-weight: 400; }
+.bar .doing { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.alert { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: none; flex-direction: column; justify-content: center; padding: 0 clamp(16px, 6vw, 140px); gap: 10px; }
+.alert.on { display: flex; animation: flash .5s ease-out; }
+@keyframes flash { from { background: #ff9a5a22; } }
+.alert .who { font-size: 300px; line-height: .95; letter-spacing: -12px; color: var(--reviewer); font-weight: 300; }
+.alert .what { font-size: 120px; letter-spacing: -4px; }
+.alert .what b { font-weight: 400; color: var(--neon); }
+</style>
+<link rel="stylesheet" href="looks.css">
+<link rel="stylesheet" href="figs.css">
+<link rel="stylesheet" href="celebrate.css">
+</head>
+<body>
+<header class="brand" id="brand">PR TABLE</header>
+<div class="cols">
+  <section class="col next"><h2>Next</h2><div id="next"></div></section>
+  <section class="col review"><h2>Review</h2><div id="review"></div></section>
+  <section class="col merged"><h2>Merged</h2><div id="merged"></div></section>
+</div>
+<div class="agents" id="agents"></div>
+<div class="bar" id="bar"><span class="dot"></span><span class="ref" id="ref"></span><span class="doing" id="doing"></span><span class="sync" id="sync"></span></div>
+<div class="alert" id="alert"><div class="who"><span id="who-name"></span><img id="who-fig" alt=""></div><div class="what" id="alert-what"></div></div>
+<script src="looks.js"></script>
+<script src="figs.js"></script>
+<script src="celebrate.js"></script>
+<script>
+const labels = name => ({ ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
+const SPIN = ["◜", "◝", "◞", "◟"];
+let last = null;
+let spin = 0;
+
+function list(el, html) {
+  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+}
+
+let build = null;
+let prevMerged = null;
+let partySeen = null;
+
+function render(s) {
+  if (build && s.build !== build) location.reload();
+  build = s.build;
+  last = s;
+  const ui = s.ui || {};
+  const LABEL = labels(ui.reviewer || "reviewer");
+  const brand = document.querySelector("#brand .word") || document.getElementById("brand");
+  if (ui.title && brand.textContent !== ui.title) brand.textContent = ui.title;
+  document.getElementById("who-name").textContent = ui.reviewer || "";
+  const whoFig = document.getElementById("who-fig");
+  if (ui.reviewer_figure) { if (whoFig.getAttribute("src") !== ui.reviewer_figure) whoFig.src = ui.reviewer_figure; whoFig.hidden = false; } else whoFig.hidden = true;
+  if (ui.crew) window.setCrew?.(ui.crew);
+  if (prevMerged) s.merged.filter(m => !prevMerged.includes(m)).forEach(celebrate);
+  if (partySeen === null) partySeen = s.party ? s.party.id : 0;
+  else if (s.party && s.party.id !== partySeen) { partySeen = s.party.id; celebrate(s.party.ref); }
+  prevMerged = s.merged;
+  list(document.getElementById("next"), s.next.map(e => `<div class="n">${e}</div>`).join(""));
+  list(document.getElementById("review"), s.review.map(r =>
+    (() => {
+      const st = (s.ask || []).includes(r.ref) && r.status !== "paused" && r.status !== "draft" ? "ask" : r.status;
+      const fig = ui.reviewer_figure && ["ask", "waiting", "decides"].includes(st) ? `<img class="mini" src="${ui.reviewer_figure}" alt="">` : "";
+      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""}">${r.ref}<small>${LABEL[st] || ""}${fig}</small></div>`;
+    })()).join(""));
+  list(document.getElementById("merged"), s.merged.map(m => `<div class="n">${m}${(s.merged_recent || []).includes(m) ? `<span class="party-tag">🎉</span>` : ""}</div>`).join(""));
+  list(document.getElementById("agents"), s.agents.slice(-4).map(a =>
+    `<div class="agent"><span class="spin"></span><span class="what">${esc(a.text)}</span><span class="now">${esc(a.doing)}</span></div>`).join(""));
+  fit();
+  document.getElementById("bar").classList.toggle("idle", !s.active);
+  document.getElementById("ref").textContent = s.focus || "";
+  document.getElementById("doing").textContent = s.doing || "";
+  const alert = document.getElementById("alert");
+  alert.classList.toggle("on", !!s.alert);
+  if (s.alert) document.getElementById("alert-what").innerHTML = `${s.alert.kind} <b>${s.alert.ref}</b>`;
+}
+
+function fit() {
+  const cols = document.querySelector(".cols");
+  const head = cols.querySelector("h2");
+  const most = Math.max(1, ...[...cols.querySelectorAll(".col > div:not(.figs)")].map(d => d.children.length));
+  const cs = getComputedStyle(cols);
+  const room = cols.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - head.offsetHeight - 24 - 16;
+  cols.style.setProperty("--n", `${Math.max(40, Math.min(112, Math.floor(room / most / 1.04)))}px`);
+}
+
+addEventListener("resize", fit);
+
+function tickSync() {
+  const el = document.getElementById("sync");
+  if (!last || !last.gh_ok) { el.textContent = ""; return; }
+  const t = new Date(last.gh_ok * 1000);
+  el.textContent = `synced ${t.toLocaleTimeString("en-GB")}`;
+  el.classList.toggle("stale", Date.now() / 1000 - last.gh_ok > 60);
+}
+
+setInterval(tickSync, 1000);
+
+function esc(t) {
+  return (t || "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+setInterval(() => {
+  spin = (spin + 1) % SPIN.length;
+  document.querySelectorAll(".spin").forEach(el => el.textContent = SPIN[spin]);
+}, 250);
+
+function connect() {
+  const es = new EventSource("/events");
+  es.onmessage = e => render(JSON.parse(e.data));
+  es.onerror = () => { es.close(); setTimeout(connect, 2000); };
+}
+connect();
+</script>
+</body>
+</html>

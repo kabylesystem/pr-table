@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PR Table cover</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Geist+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; box-sizing: border-box; }
+html, body { width: 1270px; height: 760px; overflow: hidden; background: #05070a; }
+.bg { position: absolute; inset: 0; background: url("gallery/hero-party.png") center / cover; }
+.fade { position: absolute; inset: 0; background: linear-gradient(90deg, #05070af2 0%, #05070acc 38%, #05070a00 70%); }
+.copy { position: absolute; left: 64px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 22px; }
+h1 { font-family: "Bungee", sans-serif; font-weight: 400; font-size: 118px; line-height: .95; color: #c8ff5a; transform: skew(-9deg); transform-origin: left bottom; letter-spacing: .02em;
+  text-shadow: 2px 2px 0 #8fcc2f, 4px 4px 0 #79ad25, 6px 6px 0 #638f1c, 8px 8px 0 #4d7114, 10px 10px 0 #426210, 14px 18px 30px #000c, 0 0 70px #a3e63566; }
+p { font-family: "Geist Mono", monospace; font-weight: 300; font-size: 34px; line-height: 1.25; color: #e9eef3; max-width: 560px; }
+</style>
+</head>
+<body><div class="bg"></div><div class="fade"></div><div class="copy"><h1>PR<br>TABLE</h1><p>Your pull requests, live on your second screen.</p></div></body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "title": "PR TABLE",
+  "port": 4950,
+  "github": {
+    "author": "your-github-login",
+    "repos": [
+      { "name": "your-org/api", "label": "" },
+      { "name": "your-org/web", "label": "w" }
+    ]
+  },
+  "reviewer": {
+    "login": "reviewer-github-login",
+    "name": "Alex",
+    "figure": "assets/crew/crew-1.png"
+  },
+  "crew": [
+    "assets/crew/crew-1.png",
+    "assets/crew/crew-2.png",
+    "assets/crew/crew-3.png",
+    "assets/crew/crew-4.png"
+  ],
+  "ready_marker": "Open points: none",
+  "next": {
+    "clones": ["~/code/api", "~/code/web"],
+    "branch_pattern": "^(?:[\\w-]+/)?[a-z]+-(\\d+)-",
+    "issue_pattern": "(?i)\\b[a-z]+-(\\d+)\\b"
+  },
+  "claude": {
+    "session_file": "",
+    "hyprland_workspace": null
+  },
+  "slack": {
+    "token_env": "SLACK_TOKEN",
+    "channel": ""
+  }
+}

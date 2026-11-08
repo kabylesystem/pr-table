@@ -1,0 +1,13 @@
+{
+  "crew_base": "A single brick-style plastic minifigure toy of a fictional software developer, full body from head to feet, standing upright, facing the camera with a slight three-quarter turn, arms relaxed, glossy ABS plastic with crisp studio lighting and soft reflections, high-end toy product photography, sharp focus, centered, the whole figure visible, isolated on a fully transparent background, no text, no logos, no brand marks, no base plate. Character: {desc}.",
+  "crew": {
+    "crew-1": "a woman with a short black bob haircut and round tortoiseshell glasses, olive green bomber jacket over a white t-shirt, dark jeans, white sneakers, calm confident smile",
+    "crew-2": "a young man with a lime green beanie and over-ear headphones around his neck, charcoal hoodie with a thin neon lime stripe, grey cargo pants, black sneakers, big grin",
+    "crew-3": "a person with long box braids tied back, light denim jacket over a black t-shirt, black trousers, holding a small silver laptop under one arm, friendly smile",
+    "crew-4": "a bald man with a full brown beard, black turtleneck, beige chinos, holding a tiny white coffee mug, raised eyebrow and smirk"
+  },
+  "gallery": {
+    "hero-party": "Cinematic photoreal close-up on a dark desk at night: four tiny brick-style plastic minifigure developers jumping and celebrating on top of a matte black keyboard, an explosion of neon lime green, orange and white paper confetti frozen mid-air, a large glowing monitor behind them casting intense lime green light, shallow depth of field, dramatic rim light, 35mm film look, high contrast, no text, no logos, no brand marks.",
+    "hero-lever": "Epic photoreal toy photography: a tiny brick-style plastic minifigure developer in a charcoal hoodie pulling a giant glowing neon lime lever on a black control panel, sparks and lime light beams shooting upward, three other minifigures cheering behind, dark moody studio with green haze and volumetric light, shallow depth of field, no text, no logos, no brand marks."
+  }
+}

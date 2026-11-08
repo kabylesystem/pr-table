@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -uo pipefail
+DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+PORT="${PR_TABLE_PORT:-4950}"
+URL="http://127.0.0.1:$PORT/"
+PROFILE="${XDG_DATA_HOME:-$HOME/.local/share}/pr-table/browser"
+BROWSER="${PR_TABLE_BROWSER:-$(command -v chromium || command -v google-chrome || command -v brave || command -v microsoft-edge || true)}"
+
+running() { curl -s -o /dev/null -m 1 "$URL"; }
+
+serve() {
+    running && return 0
+    if systemctl --user cat pr-table.service >/dev/null 2>&1; then
+        systemctl --user start pr-table.service
+    else
+        nohup python3 "$DIR/server.py" "$@" >/dev/null 2>&1 &
+    fi
+    for _ in $(seq 1 30); do running && return 0; sleep 0.3; done
+    echo "server did not start" >&2; exit 1
+}
+
+window() {
+    command -v hyprctl >/dev/null || return 0
+    hyprctl clients -j | python3 -c 'import json,sys;[print(c["address"]) for c in json.load(sys.stdin) if c["title"].startswith("PR Table")]' | head -1
+}
+
+browser_pids() {
+    for p in $(pgrep -f -- "--user-data-dir=$PROFILE"); do
+        tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q -- '--type=' || echo "$p"
+    done
+}
+
+show() {
+    serve
+    [ -z "$BROWSER" ] && { echo "Open $URL in any browser and press F11"; return 0; }
+    [ -n "$(browser_pids)" ] && return 0
+    mkdir -p "$PROFILE"
+    flags="--user-data-dir=$PROFILE --no-first-run --no-default-browser-check --hide-crash-restore-bubble --noerrdialogs --kiosk $URL"
+    if command -v hyprctl >/dev/null; then
+        ws="$(hyprctl monitors -j | python3 -c 'import json,sys;m=[x for x in json.load(sys.stdin) if not x["name"].startswith("eDP")];print(m[0]["activeWorkspace"]["id"] if m else "")')"
+        if [ -n "$ws" ]; then
+            hyprctl dispatch exec "[workspace $ws silent] $BROWSER $flags" >/dev/null
+            return 0
+        fi
+    fi
+    nohup "$BROWSER" $flags >/dev/null 2>&1 &
+}
+
+hide() {
+    pids="$(browser_pids)"
+    [ -n "$pids" ] && kill $pids
+}
+
+case "${1:-toggle}" in
+    on) show ;;
+    off) hide ;;
+    toggle) if [ -n "$(browser_pids)" ]; then hide; else show; fi ;;
+    demo) shift; python3 "$DIR/server.py" --demo "$@" ;;
+    party) curl -s -m 5 "${URL}celebrate?ref=${2:-}" ;;
+    *) echo "usage: pr-table [on|off|toggle|demo|party [ref]]" >&2; exit 2 ;;
+esac

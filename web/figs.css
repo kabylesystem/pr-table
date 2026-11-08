@@ -1,0 +1,16 @@
+.stage { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+.fig { position: absolute; bottom: 0; height: 200px; width: auto; display: block; filter: drop-shadow(0 0 2px #a3e635) drop-shadow(0 0 18px #a3e63555); }
+.fig.mirror { transform: scaleX(-1); }
+html[data-fig] .col.next .figs { display: none; }
+html[data-fig] .brand { display: flex; align-items: flex-end; gap: 28px; }
+.brand .inline { height: 150px; width: auto; margin-bottom: -10px; filter: drop-shadow(0 0 2px #a3e635) drop-shadow(0 0 16px #a3e63555); transform: skew(0deg); }
+.brand .inline.mirror { transform: scaleX(-1); }
+html[data-look="5"][data-fig] .brand { transform: none; }
+html[data-look="5"][data-fig] .brand .word { transform: skew(-9deg); transform-origin: left bottom; display: inline-block; }
+@keyframes walk-x { 0% { left: var(--from); } 48% { left: var(--to); } 50% { left: var(--to); } 98% { left: var(--from); } 100% { left: var(--from); } }
+@keyframes step { 50% { translate: 0 -8px; rotate: 2deg; } }
+.walker { animation: walk-x 40s linear infinite; }
+.walker img { height: 100%; animation: step .6s ease-in-out infinite; }
+html[data-fig="2"] .cols, html[data-fig="3"] .cols, html[data-fig="4"] .cols { padding-bottom: 170px; }
+.crew { height: 100%; width: auto; display: block; filter: drop-shadow(0 0 2px #a3e635) drop-shadow(0 0 16px #a3e63555); }
+.crew.mirror { transform: scaleX(-1); }
