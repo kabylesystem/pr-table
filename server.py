@@ -600,6 +600,7 @@ def main():
     ap.add_argument("--config", default=str(ROOT / "config.json"))
     ap.add_argument("--demo", action="store_true", help="run with fake data, no GitHub needed")
     ap.add_argument("--port", type=int)
+    ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 to show the table on a TV or Raspberry Pi on your network")
     args = ap.parse_args()
     ThreadingHTTPServer.daemon_threads = True
     if args.demo:
@@ -616,8 +617,8 @@ def main():
         threading.Thread(target=threads_loop, args=(pulls,), daemon=True).start()
         threading.Thread(target=transcript_loop, args=(Transcript(cfg, pulls),), daemon=True).start()
         port = args.port or cfg.port
-    print(f"PR Table on http://127.0.0.1:{port}", flush=True)
-    ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+    print(f"PR Table on http://{args.host}:{port}", flush=True)
+    ThreadingHTTPServer((args.host, port), Handler).serve_forever()
 
 
 if __name__ == "__main__":

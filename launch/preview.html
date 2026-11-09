@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR Table launch preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Bungee&display=swap" rel="stylesheet">
+<style>
+:root { --bg: #0b0d10; --card: #14171c; --line: #262b33; --ink: #f2f4f7; --grey: #9aa3ad; --lime: #c8ff5a; --ph: #ff6154; }
+* { box-sizing: border-box; margin: 0; }
+html, body { background: var(--bg); color: var(--ink); font-family: Inter, sans-serif; }
+body { padding: 40px clamp(16px, 3vw, 48px) 80px; display: flex; flex-direction: column; gap: 56px; }
+h1 { font-family: Bungee, sans-serif; font-weight: 400; font-size: 34px; color: var(--lime); }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 18px; }
+.variants { display: grid; grid-template-columns: repeat(auto-fill, minmax(520px, 1fr)); gap: 20px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 22px; display: grid; grid-template-columns: 72px 1fr; gap: 6px 18px; }
+.card img { width: 72px; height: 72px; border-radius: 12px; grid-row: span 3; }
+.num { color: var(--ph); font-weight: 700; margin-right: 8px; }
+.name { font-size: 20px; font-weight: 700; }
+.tag { font-size: 17px; color: var(--grey); line-height: 1.35; }
+.desc { grid-column: 1 / -1; margin-top: 12px; font-size: 15px; line-height: 1.5; color: #d6dbe1; }
+.angle { grid-column: 1 / -1; margin-top: 6px; font-size: 13px; color: var(--lime); }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(560px, 1fr)); gap: 24px; }
+figure { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+figure img, figure video { display: block; width: 100%; aspect-ratio: 1270 / 760; object-fit: cover; background: #000; }
+figcaption { padding: 12px 16px; font-size: 15px; }
+figcaption b { color: var(--ph); margin-right: 8px; }
+.logo-fig img { aspect-ratio: auto; width: 240px; height: 240px; object-fit: contain; margin: 24px auto; background: transparent; }
+</style>
+</head>
+<body>
+<h1>PR TABLE · launch preview</h1>
+
+<section>
+  <h2>Taglines built on D and E, team-first</h2>
+  <div class="variants" id="variants"></div>
+</section>
+
+<section>
+  <h2>New slides (top-launch style)</h2>
+  <div class="gallery">
+    <figure><img src="gallery/slide-1.png" alt=""><figcaption><b>S1</b>Your team's pull requests, on the wall</figcaption></figure>
+    <figure><img src="gallery/slide-2.png" alt=""><figcaption><b>S2</b>One red line</figcaption></figure>
+    <figure><img src="gallery/slide-3.png" alt=""><figcaption><b>S3</b>Every merge gets a 20-second party</figcaption></figure>
+    <figure><img src="gallery/slide-4.png" alt=""><figcaption><b>S4</b>Plug in what your team already ships with</figcaption></figure>
+    <figure><img src="gallery/slide-5.png" alt=""><figcaption><b>S5</b>When your reviewer comments</figcaption></figure>
+    <figure><img src="gallery/slide-6.png" alt=""><figcaption><b>S6</b>Your team, as minifigs</figcaption></figure>
+    </div>
+</section>
+
+<section>
+  <h2>First round</h2>
+  <div class="gallery">
+    <figure><img src="gallery/cover.png" alt=""><figcaption><b>1</b>Cover · minifigs party + title</figcaption></figure>
+    <figure><img src="gallery/merge.gif" alt=""><figcaption><b>2</b>Merge party (GIF)</figcaption></figure>
+    <figure><img src="gallery/board.png" alt=""><figcaption><b>3</b>The board · one red line</figcaption></figure>
+    <figure><img src="gallery/merged.png" alt=""><figcaption><b>4</b>MERGED frame</figcaption></figure>
+    <figure><img src="gallery/reviewer-alert.png" alt=""><figcaption><b>5</b>Reviewer alert</figcaption></figure>
+    <figure><img src="gallery/hero-party.png" alt=""><figcaption><b>6</b>Minifigs party on the keyboard</figcaption></figure>
+    <figure><img src="gallery/hero-lever.png" alt=""><figcaption><b>7</b>The merge lever</figcaption></figure>
+    <figure><video src="gallery/demo.mp4" controls muted loop autoplay playsinline></video><figcaption><b>8</b>Demo video</figcaption></figure>
+    <figure class="logo-fig"><img src="logo-480.png" alt=""><figcaption><b>9</b>Thumbnail / logo</figcaption></figure>
+  </div>
+</section>
+
+<script>
+const VARIANTS = [
+  { name: "PR Table", tag: "Mission control for teams that ship with AI",
+    desc: "A dedicated screen for your team's pull requests. Plug in GitHub, Slack and Claude Code: giant Next, Review, Merged numbers, live agent activity, the one PR that needs you in red, and a 20 second party on every merge.",
+    angle: "E, team version. Serious and broad, still says AI." },
+  { name: "PR Table", tag: "Watch your team's AI agents ship from the couch",
+    desc: "Put your team's pull requests on a dedicated screen. PR Table plugs into GitHub, Slack and Claude Code, shows every agent working live, turns the one PR that needs someone red, and throws a 20 second party on every merge.",
+    angle: "D, team version. Fun and visual, rides the agent wave." },
+  { name: "PR Table", tag: "Mission control for your team's PRs and AI agents",
+    desc: "One dedicated screen, the whole team's pull requests. Connect GitHub, Slack and Claude Code once, then read Next, Review and Merged from across the room, see agents work live, and celebrate every merge with confetti.",
+    angle: "D + E mixed. Names both things you watch." },
+  { name: "PR Table", tag: "Your team's AI agents, live on the office wall",
+    desc: "PR Table turns any TV or monitor into a live wall for your team's pull requests. It plugs into GitHub, Slack and Claude Code, so everyone sees what the agents ship, what needs a human, and every merge gets a party.",
+    angle: "D, office version. Makes people picture the wall." },
+  { name: "PR Table", tag: "Mission control for devs who ship with AI",
+    desc: "A wall-sized, real-time view of your team's pull requests: Next, Review, Merged in giant numbers, live Claude Code agents, a full-screen alert when your reviewer comments, and a confetti party on every merge. Open source.",
+    angle: "E as you liked it, description made team-first." },
+];
+document.getElementById("variants").innerHTML = VARIANTS.map((v, i) => `
+  <div class="card"><img src="logo-480.png" alt="">
+    <div class="name"><span class="num">${String.fromCharCode(65 + i)}</span>${v.name}</div>
+    <div class="tag">${v.tag} <span style="color:#5d6670">· ${v.tag.length}/60</span></div>
+    <div></div>
+    <div class="desc">${v.desc} <span style="color:#5d6670">· ${v.desc.length}/260</span></div>
+    <div class="angle">${v.angle}</div>
+  </div>`).join("");
+</script>
+</body>
+</html>

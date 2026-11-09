@@ -40,6 +40,8 @@ Open http://127.0.0.1:4950 and press F11. The demo invents PRs, agents and a mer
 
 Linux users can let `bin/pr-table` do the fullscreen part: `bin/pr-table` toggles a kiosk window on your external monitor (Chromium, Chrome, Brave or Edge, with Hyprland support), `bin/pr-table party 1234` replays the merge animation for whoever is watching. A ready-made systemd unit lives in `contrib/pr-table.service`.
 
+For a team screen, run it on any machine and open it from the TV or Raspberry Pi on your network: `python3 server.py --host 0.0.0.0`, then browse to `http://<that-machine>:4950`.
+
 Requirements: Python 3.10+ (standard library only), a GitHub token, any modern browser.
 
 ## What each label means

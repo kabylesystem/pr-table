@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PR Table slides</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Inter:wght@400;500;600&family=Bungee&family=Geist+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; box-sizing: border-box; }
+html, body { width: 1270px; height: 760px; overflow: hidden; }
+body { position: relative; background: #f7f4ee; font-family: Inter, sans-serif; color: #17181a; }
+body::before { content: ""; position: absolute; inset: 0; background-image: radial-gradient(#d9d2c6 1.1px, transparent 1.2px); background-size: 14px 14px; -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 0%, #0008 45%, transparent 80%); }
+body::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 110%, #ffffff 0%, transparent 60%); pointer-events: none; }
+.slide { position: absolute; inset: 0; display: none; z-index: 1; }
+.slide.on { display: block; }
+.brand { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; font-family: Bungee, sans-serif; font-size: 20px; color: #3f6a12; }
+.brand img { width: 30px; height: 30px; border-radius: 8px; }
+h1 { position: absolute; left: 0; right: 0; top: 76px; text-align: center; font-family: "Inter Tight", sans-serif; font-weight: 600; font-size: 52px; line-height: 1.04; letter-spacing: -0.035em; }
+h1.two { top: 70px; }
+.sub { position: absolute; left: 0; right: 0; top: 188px; text-align: center; font-size: 20px; color: #6b6b6b; letter-spacing: -0.01em; }
+.monitor { position: absolute; left: 50%; transform: translateX(-50%); background: #0d0f12; border-radius: 18px; padding: 12px; box-shadow: 0 30px 80px -20px #2b241a55, 0 2px 0 #ffffff inset; }
+.monitor img { display: block; width: 100%; border-radius: 8px; }
+.stand { position: absolute; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; background: linear-gradient(#cfc8bb, #b9b1a3); clip-path: polygon(30% 0, 70% 0, 85% 100%, 15% 100%); }
+.crew { position: absolute; display: flex; align-items: flex-end; gap: 6px; }
+.crew img { height: 100%; filter: drop-shadow(0 14px 14px #3a2f1f40); }
+.panel { position: absolute; background: #0d0f12; border-radius: 16px; overflow: hidden; box-shadow: 0 30px 80px -20px #2b241a66; }
+.panel img { display: block; }
+.icons { position: absolute; left: 50%; top: 250px; transform: translateX(-50%); display: grid; grid-template-columns: repeat(6, 104px); gap: 20px; }
+.tile { width: 104px; height: 104px; border-radius: 26px; background: #fff; box-shadow: 0 10px 30px -10px #3a2f1f44, 0 0 0 1px #00000008; display: grid; place-items: center; }
+.tile i { width: 54px; height: 54px; display: block; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; background: var(--c); }
+.tile.pr { background: #05070a; }
+.tile.pr span { font-family: Bungee, sans-serif; font-size: 40px; color: #c8ff5a; transform: skew(-9deg); text-shadow: 2px 2px 0 #638f1c, 4px 4px 0 #426210; }
+.labels { position: absolute; left: 50%; top: 384px; transform: translateX(-50%); display: grid; grid-template-columns: repeat(6, 104px); gap: 20px; text-align: center; font-size: 14px; color: #6b6b6b; font-weight: 500; }
+.code { position: absolute; left: 50%; top: 452px; transform: translateX(-50%); width: 760px; background: #fff; border-radius: 18px; box-shadow: 0 20px 50px -18px #3a2f1f44, 0 0 0 1px #00000008; padding: 22px 26px; font-family: "Geist Mono", monospace; font-size: 15px; line-height: 1.65; color: #2b2b2b; white-space: pre; }
+.code b { color: #3f6a12; font-weight: 400; }
+.code s { color: #9a6b2f; text-decoration: none; }
+.chip { position: absolute; background: #fff; border-radius: 14px; padding: 14px 18px; box-shadow: 0 16px 40px -14px #3a2f1f55, 0 0 0 1px #00000008; font-size: 15px; display: flex; align-items: center; gap: 10px; }
+.chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<section class="slide" data-n="1">
+  <div class="brand"><img src="logo-480.png" alt="">PR TABLE</div>
+  <h1>Your team's pull requests,<br>on the wall.</h1>
+  <div class="monitor" style="top:246px; width:760px"><img src="gallery/board.png" alt=""></div>
+  <div class="stand" style="top:690px"></div>
+  <div class="crew" style="left:58px; bottom:-6px; height:300px"><img src="../web/assets/crew/crew-1.png" alt=""><img src="../web/assets/crew/crew-2.png" alt=""></div>
+  <div class="crew" style="right:58px; bottom:-6px; height:300px"><img src="../web/assets/crew/crew-3.png" alt=""><img src="../web/assets/crew/crew-4.png" alt=""></div>
+</section>
+
+<section class="slide" data-n="2">
+  <div class="brand"><img src="logo-480.png" alt="">PR TABLE</div>
+  <h1>One red line.<br>Everything else can wait.</h1>
+  <div class="panel" style="left:50%; transform:translateX(-50%); top:244px; width:690px; height:420px"><img src="gallery/board.png" alt="" style="width:1860px; margin:-232px 0 0 -570px"></div>
+  <div class="chip" style="left:290px; top:684px"><span class="dot" style="background:#ff3b3b"></span>Needs you: post it on Slack</div>
+  <div class="chip" style="right:290px; top:684px"><span class="dot" style="background:#9aa3ad"></span>Everything else: <b>nothing</b></div>
+</section>
+
+<section class="slide" data-n="3">
+  <div class="brand"><img src="logo-480.png" alt="">PR TABLE</div>
+  <h1>Every merge gets<br>a 20-second party.</h1>
+  <div class="monitor" style="top:246px; width:760px"><img src="gallery/merged.png" alt=""></div>
+  <div class="stand" style="top:690px"></div>
+</section>
+
+<section class="slide" data-n="4">
+  <div class="brand"><img src="logo-480.png" alt="">PR TABLE</div>
+  <h1>Plug in what your team<br>already ships with.</h1>
+  <div class="icons">
+    <div class="tile"><i style="--icon:url(https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/github.svg); --c:#181717"></i></div>
+    <div class="tile"><i style="--icon:url(https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/slack.svg); --c:#4A154B"></i></div>
+    <div class="tile"><i style="--icon:url(https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/claude.svg); --c:#D97757"></i></div>
+    <div class="tile"><i style="--icon:url(https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/git.svg); --c:#F05032"></i></div>
+    <div class="tile"><i style="--icon:url(https://cdn.jsdelivr.net/npm/simple-icons@13.21.0/icons/raspberrypi.svg); --c:#A22846"></i></div>
+    <div class="tile pr"><span>PR</span></div>
+  </div>
+  <div class="labels"><span>PRs, reviews, checks</span><span>who posted</span><span>live agents</span><span>next branches</span><span>any TV or Pi</span><span>one screen</span></div>
+  <div class="code">{
+  <b>"github"</b>: { <b>"repos"</b>: [<s>"acme/api"</s>, <s>"acme/web"</s>] },
+  <b>"reviewer"</b>: { <b>"login"</b>: <s>"alex"</s> },
+  <b>"slack"</b>: { <b>"channel"</b>: <s>"C042PRS"</s> }
+}</div>
+</section>
+
+<section class="slide" data-n="5">
+  <div class="brand"><img src="logo-480.png" alt="">PR TABLE</div>
+  <h1>When your reviewer comments,<br>the whole room knows.</h1>
+  <div class="monitor" style="top:246px; width:760px"><img src="gallery/reviewer-alert.png" alt=""></div>
+  <div class="stand" style="top:690px"></div>
+</section>
+
+<section class="slide" data-n="6">
+  <div class="brand"><img src="logo-480.png" alt="">PR TABLE</div>
+  <h1>Your team, as minifigs.</h1>
+  <div class="sub">Generate everyone from a photo. The prompts ship with the repo.</div>
+  <div class="crew" style="left:50%; transform:translateX(-50%); bottom:40px; height:470px; gap:18px">
+    <img src="../web/assets/crew/crew-1.png" alt=""><img src="../web/assets/crew/crew-2.png" alt=""><img src="../web/assets/crew/crew-3.png" alt=""><img src="../web/assets/crew/crew-4.png" alt="">
+  </div>
+</section>
+
+<script>
+const n = new URLSearchParams(location.search).get("n") || "1";
+document.querySelector(`.slide[data-n="${n}"]`).classList.add("on");
+</script>
+</body>
+</html>
