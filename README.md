@@ -2,7 +2,7 @@
 
 <h1 align="center">PR TABLE</h1>
 
-<p align="center"><b>Your pull requests, live on your second screen.</b><br>
+<p align="center"><b>Mission control for teams that ship with AI.</b><br>A dedicated screen for your team's pull requests.<br>
 Huge numbers you can read from across the room, the one thing you have to do in red, and a confetti party every time a PR merges.</p>
 
 <p align="center"><img src="launch/gallery/merge.gif" width="720" alt="The merge celebration"></p>
@@ -21,7 +21,9 @@ PR Table answers it on a spare monitor, without opening a single tab:
 - **A reviewer alert.** When your reviewer comments, their name takes over the whole screen for 45 seconds.
 - **A merge party.** Every merge triggers 20 seconds of 3D "MERGED", shockwaves, confetti and your crew jumping around.
 
-<p align="center"><img src="launch/gallery/board.png" width="900" alt="The board"></p>
+<p align="center"><img src="launch/final/1-team-wall.jpg" width="900" alt="PR Table on the team wall"></p>
+
+<p align="center"><img src="launch/final/2-tour.gif" width="900" alt="A tour of Next, Review and Merged"></p>
 
 ## Quick start (60 seconds, no setup)
 
