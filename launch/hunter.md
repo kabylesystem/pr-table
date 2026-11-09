@@ -1,56 +1,58 @@
 # Hunter brief: PR Table
 
-Everything you need to hunt PR Table on Product Hunt, in submission order. Every file is public, so download straight from the links.
+Everything to fill in the Product Hunt submission form, in the order the form asks for it. All files are public, so download them straight from the links. Limits below come from Product Hunt's own launch guide.
 
-## 1. Main info
+## 1. Product link
 
-| Field | Paste this |
+https://github.com/kabylesystem/pr-table
+
+## 2. Name, tagline, description
+
+| Field (limit) | Paste this |
 |---|---|
-| Link | https://github.com/kabylesystem/pr-table |
-| Name | PR Table |
-| Tagline | Your PRs on the wall. Confetti when they merge. |
-| Topics | Developer Tools, GitHub, Productivity, Artificial Intelligence, Open Source |
-| Pricing | Free (open source) |
+| Name (40) | PR Table |
+| Tagline (60) | Mission control for teams that ship with AI |
+| Description (500) | A dedicated screen for your team's pull requests. Plug in GitHub, Slack and Claude Code: giant Next, Review, Merged numbers, live agent activity, the one PR that needs you in red, and a 20 second party on every merge. Free and open source, runs on your own machine, and the demo needs zero setup. |
+| Launch tags (3 max) | Developer Tools, GitHub, Artificial Intelligence |
+| Pricing | Free |
+| Company info | Open source: yes |
 
-Description:
-
-> PR Table turns a spare monitor into a live scoreboard for your pull requests. Huge numbers you can read from the couch, the one PR that needs you in red, your Claude Code agents working in real time, and a full confetti party every time something merges.
-
-Backup taglines if the first one is taken or flagged:
-- A stadium scoreboard for your pull requests
-- Know what to do next without opening a tab
-- Your AI agents ship. Your second screen cheers.
-
-## 2. Media
+## 3. Thumbnail and gallery
 
 | Slot | File |
 |---|---|
-| Thumbnail (240×240) | [logo-240.png](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/logo-240.png) |
-| Gallery 1 | [cover.png](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/gallery/cover.png) |
-| Gallery 2 | [merge.gif](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/gallery/merge.gif) |
-| Gallery 3 | [board.png](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/gallery/board.png) |
-| Gallery 4 | [reviewer-alert.png](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/gallery/reviewer-alert.png) |
-| Gallery 5 | [hero-lever.png](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/gallery/hero-lever.png) |
-| Video | [demo.mp4](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/gallery/demo.mp4) (upload it to YouTube or Loom first, Product Hunt only takes a link) |
+| Thumbnail (240×240, 2 MB max) | [0-thumbnail.png](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/0-thumbnail.png) |
+| Gallery 1 | [1-team-wall.jpg](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/1-team-wall.jpg) |
+| Gallery 2 | [2-tour.gif](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/2-tour.gif) |
+| Gallery 3 | [3-merge-party.jpg](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/3-merge-party.jpg) |
+| Gallery 4 | [4-one-red-line.jpg](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/4-one-red-line.jpg) |
+| Gallery 5 | [5-plug-in.jpg](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/5-plug-in.jpg) |
+| Gallery 6 | [6-reviewer-alert.jpg](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/6-reviewer-alert.jpg) |
+| Gallery 7 | [7-crew-party.jpg](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/7-crew-party.jpg) |
+| Video (optional) | Product Hunt wants a link. The maker uploads [video-tour.mp4](https://raw.githubusercontent.com/kabylesystem/pr-table/main/launch/final/video-tour.mp4) to YouTube (unlisted is fine) and sends you the link |
 
-## 3. Makers
+All gallery images are 1270×760, the size Product Hunt recommends.
 
-Add the maker's Product Hunt profile as maker, so the maker can post the first comment.
+## 4. Launch team
 
-## 4. Schedule
+- Pick **"I'm hunting it"** (hunter only).
+- Add the maker by their Product Hunt username. The maker should create their account a few days before launch.
 
-Launch at **00:01 Pacific time**, when the Product Hunt day starts. Agree on the date with the maker so they are online for the first hours.
+## 5. First comment (pinned at the top, up to 5,000 characters)
 
-## 5. Your hunter comment (post right after launch)
+> Hunting this one because it made me laugh and then made me jealous. PR Table puts your team's pull requests on a dedicated screen in giant numbers, shows the one PR that needs someone in red, and throws an actual party with confetti and jumping minifigs every time something merges. If your team ships with AI agents, it also shows what they are doing live. The demo takes one command: `python3 server.py --demo`. Maker, take it away 👇
 
-> Hunting this one because it made me laugh and then made me jealous. PR Table puts your pull requests on a second screen in giant numbers, shows the one PR that needs you in red, and throws an actual party with confetti and jumping minifigs every time something merges. If you ship with AI agents, it also shows what your agent is doing live. Try the demo, it takes one command.
+The maker posts their own comment right after launch (it's ready in [producthunt.md](producthunt.md)).
 
-## 6. The maker's first comment
+## 6. Schedule
 
-It is ready to paste in [producthunt.md](producthunt.md#first-comment-post-it-the-second-the-launch-goes-live), along with the follow-up comments for the rest of the day.
+- Pick a date between tomorrow and 30 days out. Launches go live at **12:01 AM Pacific Time** (9:01 AM in Paris, 3:01 AM in New York) and run until midnight Pacific.
+- Pick a day the maker can be online for the first hours. Weekdays bring more traffic and more competition, weekends are quieter.
+- Product Hunt reviews scheduled launches before they go live, so schedule a few days ahead. Use "Create draft" while the page is incomplete.
+- One person can hunt at most 2 launches per day.
 
 ## 7. First hour
 
-- Post the merge GIF on X and LinkedIn with the Product Hunt link
-- Reply to every comment, fast
-- Never ask for upvotes directly; ask people to try the demo and say what they would put on their wall
+- Share the tour GIF on X and LinkedIn with the Product Hunt link.
+- Reply to every comment, fast.
+- Never ask for upvotes directly. Ask people to try the demo and say what their team would put on the wall.

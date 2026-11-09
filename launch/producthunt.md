@@ -4,34 +4,21 @@
 
 PR Table
 
-## Tagline (60 characters max, pick one)
+## Tagline (60 characters max)
 
-1. **Your PRs on the wall. Confetti when they merge.** (47) ← recommended
-2. A stadium scoreboard for your pull requests (43)
-3. Know what to do next without opening a tab (42)
-4. Your AI agents ship. Your second screen cheers. (47)
-5. The only dashboard that throws a party on merge (47)
+**Mission control for teams that ship with AI** (43)
 
-## Description (260 characters max)
+## Description (500 characters max)
 
-> PR Table turns a spare monitor into a live scoreboard for your pull requests. Huge numbers you can read from the couch, the one PR that needs you in red, your Claude Code agents working in real time, and a full confetti party every time something merges.
+> A dedicated screen for your team's pull requests. Plug in GitHub, Slack and Claude Code: giant Next, Review, Merged numbers, live agent activity, the one PR that needs you in red, and a 20 second party on every merge. Free and open source, runs on your own machine, and the demo needs zero setup.
 
-(259 characters)
+## Launch tags (3 max)
 
-## Topics
+Developer Tools · GitHub · Artificial Intelligence
 
-Developer Tools · GitHub · Productivity · Artificial Intelligence · Open Source
+## Gallery (all 1270×760, in this order)
 
-## Gallery order
-
-1. `gallery/cover.png` (the hook: minifigs partying, title, one line)
-2. `gallery/merge.gif` (the merge party, the thing people will share)
-3. `gallery/board.png` (the real board: Next · Review · Merged, one red line)
-4. `gallery/reviewer-alert.png` (your reviewer commented, from across the room)
-5. `gallery/hero-lever.png` (pure fun, the "merge lever")
-6. `gallery/demo.mp4` as the video, or upload it to YouTube and paste the link
-
-Thumbnail: `logo-240.png`.
+Everything is in `final/`: `0-thumbnail.png`, then `1-team-wall.jpg`, `2-tour.gif`, `3-merge-party.jpg`, `4-one-red-line.jpg`, `5-plug-in.jpg`, `6-reviewer-alert.jpg`, `7-crew-party.jpg`. Video: upload `final/video-tour.mp4` to YouTube and paste the link.
 
 ## First comment (post it the second the launch goes live)
 

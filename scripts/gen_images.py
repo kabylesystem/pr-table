@@ -33,6 +33,11 @@ def main():
         out.mkdir(parents=True, exist_ok=True)
         for name, desc in PROMPTS["crew"].items():
             jobs.append((name, PROMPTS["crew_base"].format(desc=desc), "1024x1536", True, out))
+    if which in ("all", "scenes"):
+        out = ROOT / "launch" / "raw"
+        out.mkdir(parents=True, exist_ok=True)
+        for name, prompt in PROMPTS.get("scenes", {}).items():
+            jobs.append((name, prompt, "1536x1024", False, out))
     if which in ("all", "gallery"):
         out = ROOT / "launch" / "gallery"
         out.mkdir(parents=True, exist_ok=True)
