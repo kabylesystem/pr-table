@@ -19,7 +19,8 @@ PR Table answers it on a spare monitor, without opening a single tab:
 - **One action, in red.** Every PR gets a label that says what *you* do. Only one of them is an action: `📣 post on Slack`. Everything else starts with `nothing`.
 - **Live from your Claude Code session.** It tails the session file, so the PR your agent is working on glows, and every sub-agent it launches gets its own spinning line while it works.
 - **A reviewer alert.** When your reviewer comments, their name takes over the whole screen for 45 seconds.
-- **A merge party.** Every merge triggers 20 seconds of 3D "MERGED", shockwaves, confetti and your crew jumping around.
+- **A merge party.** Every merge triggers 20 seconds of 3D "MERGED", shockwaves, confetti, a roaring stadium crowd and your crew jumping around.
+- **CI breaks out loud.** When a required check fails, the screen quakes, the PR number flashes red, the crowd groans and the crew sags. Then the line says `nothing · CI broke, we fix`.
 
 <p align="center"><img src="launch/final/1-team-wall.jpg" width="900" alt="PR Table on the team wall"></p>
 
@@ -93,6 +94,10 @@ The default look is the 3D title with the crew walking on the bottom line. Try o
 - `?look=1` neon sign, `2` giant drifting outline, `3` glitch, `4` departures board, `5` 3D (default)
 - `?fig=1` lined up after the title, `2` two pairs, `3` standing on the table, `4` walking (default), `5` framing the title
 - `?celebrate=1234` plays the merge animation once on load
+
+## Sound
+
+Real CC0 recordings, credited in `web/sfx/CREDITS.md`: a stadium crowd on merge, a doorbell when your reviewer comments, a disappointed "ohhh" when CI breaks. Press `m` or open `?mute=1` to mute. Browsers block sound until you click once; `bin/pr-table` starts the kiosk with autoplay allowed.
 
 ## Privacy
 

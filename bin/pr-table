@@ -35,7 +35,7 @@ show() {
     [ -z "$BROWSER" ] && { echo "Open $URL in any browser and press F11"; return 0; }
     [ -n "$(browser_pids)" ] && return 0
     mkdir -p "$PROFILE"
-    flags="--user-data-dir=$PROFILE --no-first-run --no-default-browser-check --hide-crash-restore-bubble --noerrdialogs --kiosk $URL"
+    flags="--user-data-dir=$PROFILE --no-first-run --no-default-browser-check --hide-crash-restore-bubble --noerrdialogs --autoplay-policy=no-user-gesture-required --kiosk $URL"
     if command -v hyprctl >/dev/null; then
         ws="$(hyprctl monitors -j | python3 -c 'import json,sys;m=[x for x in json.load(sys.stdin) if not x["name"].startswith("eDP")];print(m[0]["activeWorkspace"]["id"] if m else "")')"
         if [ -n "$ws" ]; then

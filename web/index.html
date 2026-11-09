@@ -62,6 +62,20 @@ body { overflow: hidden; display: grid; grid-template-rows: auto 1fr auto auto; 
 <link rel="stylesheet" href="looks.css">
 <link rel="stylesheet" href="figs.css">
 <link rel="stylesheet" href="celebrate.css">
+<style>
+.review .n.ci { color: #ff3b3b; }
+.review .n.ci small { color: var(--dim); }
+.review .n .x { font-size: .42em; color: #ff3b3b; margin-left: -10px; }
+.ci-flash { position: fixed; inset: 0; z-index: 40; pointer-events: none; background: radial-gradient(circle at 50% 50%, #ff3b3b00 30%, #ff3b3b55); opacity: 0; }
+.ci-flash.on { animation: ci-flash 1.2s ease-out 3; }
+@keyframes ci-flash { 0% { opacity: 1; } 100% { opacity: 0; } }
+body.quake { animation: quake .9s cubic-bezier(.36,.07,.19,.97) 3; }
+@keyframes quake { 10%, 90% { transform: translate(-6px, 3px) rotate(-.3deg); } 20%, 80% { transform: translate(12px, -5px) rotate(.3deg); } 30%, 50%, 70% { transform: translate(-18px, 7px) rotate(-.5deg); } 40%, 60% { transform: translate(18px, -7px) rotate(.5deg); } }
+.review .n.breaking { animation: breaking .5s steps(2) 12; }
+@keyframes breaking { 50% { color: #ff3b3b; text-shadow: 0 0 50px #ff3b3b; } }
+.stage.sad img, .brand.sad .inline { filter: grayscale(.7) brightness(.8) drop-shadow(0 0 10px #ff3b3b88) !important; animation: sad 1.4s ease-in-out infinite !important; transform-origin: 50% 100%; }
+@keyframes sad { 0%, 100% { transform: rotate(-4deg) translateY(6px) scaleY(.94); } 50% { transform: rotate(4deg) translateY(10px) scaleY(.9); } }
+</style>
 </head>
 <body>
 <header class="brand" id="brand">PR TABLE</header>
@@ -75,9 +89,10 @@ body { overflow: hidden; display: grid; grid-template-rows: auto 1fr auto auto; 
 <div class="alert" id="alert"><div class="who"><span id="who-name"></span><img id="who-fig" alt=""></div><div class="what" id="alert-what"></div></div>
 <script src="looks.js"></script>
 <script src="figs.js"></script>
+<script src="sfx.js"></script>
 <script src="celebrate.js"></script>
 <script>
-const labels = name => ({ ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
+const labels = name => ({ ci: "nothing · CI broke, we fix", ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
 const SPIN = ["◜", "◝", "◞", "◟"];
 let last = null;
 let spin = 0;
@@ -87,6 +102,10 @@ function list(el, html) {
 }
 
 let build = null;
+let alertSeen = null;
+let ciSeen = null;
+let ciTimer = null;
+const breaking = new Set();
 let prevMerged = null;
 let partySeen = null;
 
@@ -109,9 +128,10 @@ function render(s) {
   list(document.getElementById("next"), s.next.map(e => `<div class="n">${e}</div>`).join(""));
   list(document.getElementById("review"), s.review.map(r =>
     (() => {
-      const st = (s.ask || []).includes(r.ref) && r.status !== "paused" && r.status !== "draft" ? "ask" : r.status;
+      const quiet = r.status === "paused" || r.status === "draft";
+      const st = (s.ask || []).includes(r.ref) && !quiet ? "ask" : (s.ci_fail || []).includes(r.ref) && !quiet ? "ci" : r.status;
       const fig = ui.reviewer_figure && ["ask", "waiting", "decides"].includes(st) ? `<img class="mini" src="${ui.reviewer_figure}" alt="">` : "";
-      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""}">${r.ref}<small>${LABEL[st] || ""}${fig}</small></div>`;
+      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}">${r.ref}<small>${LABEL[st] || ""}${fig}</small></div>`;
     })()).join(""));
   list(document.getElementById("merged"), s.merged.map(m => `<div class="n">${m}${(s.merged_recent || []).includes(m) ? `<span class="party-tag">🎉</span>` : ""}</div>`).join(""));
   list(document.getElementById("agents"), s.agents.slice(-4).map(a =>
@@ -123,6 +143,12 @@ function render(s) {
   const alert = document.getElementById("alert");
   alert.classList.toggle("on", !!s.alert);
   if (s.alert) document.getElementById("alert-what").innerHTML = `${s.alert.kind} <b>${s.alert.ref}</b>`;
+  if (alertSeen === null) alertSeen = s.alert ? s.alert.id : 0;
+  else if (s.alert && s.alert.id !== alertSeen) { alertSeen = s.alert.id; play("reviewer"); }
+  const fails = s.ci_fail || [];
+  const fresh = ciSeen === null ? [] : fails.filter(r => !ciSeen.includes(r));
+  ciSeen = fails;
+  if (fresh.length) { fresh.forEach(ciBreak); render(s); return; }
 }
 
 function fit() {
@@ -145,6 +171,23 @@ function tickSync() {
 }
 
 setInterval(tickSync, 1000);
+
+function ciBreak(ref) {
+  play("ci");
+  document.body.insertAdjacentHTML("beforeend", `<div class="ci-flash on"></div>`);
+  const flash = document.body.lastElementChild;
+  document.body.classList.remove("quake"); void document.body.offsetWidth; document.body.classList.add("quake");
+  document.querySelectorAll(".stage, .brand").forEach(el => el.classList.add("sad"));
+  breaking.add(ref);
+  clearTimeout(ciTimer);
+  ciTimer = setTimeout(() => {
+    flash.remove();
+    document.body.classList.remove("quake");
+    document.querySelectorAll(".sad").forEach(el => el.classList.remove("sad"));
+    breaking.clear();
+    if (last) render(last);
+  }, 6500);
+}
 
 function esc(t) {
   return (t || "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));

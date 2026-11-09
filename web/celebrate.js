@@ -62,6 +62,7 @@ function celebrate(ref) {
   party.classList.remove("on"); void party.offsetWidth; party.classList.add("on");
   document.body.classList.remove("shake"); void document.body.offsetWidth; document.body.classList.add("shake");
   confetti(document.getElementById("confetti"), 19600);
+  play("merge");
   partyTimer = setTimeout(() => {
     party.classList.remove("on");
     document.body.classList.remove("shake");

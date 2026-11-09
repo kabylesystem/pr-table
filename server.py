@@ -29,7 +29,7 @@ changed = threading.Condition(lock)
 state = {
     "focus": None, "doing": "", "active": False, "agents": [],
     "next": [], "review": [], "merged": [], "merged_recent": [], "ask": [],
-    "alert": None, "party": None, "gh_ok": 0, "version": 0,
+    "alert": None, "party": None, "gh_ok": 0, "version": 0, "ci_fail": [],
     "build": str(int(time.time())), "ui": {},
 }
 
@@ -242,7 +242,7 @@ def github_loop(cfg, pulls):
             }
             publish(alert=alert, gh_ok=int(time.time()), **fields)
             CACHE.parent.mkdir(parents=True, exist_ok=True)
-            CACHE.write_text(json.dumps({**fields, "ask": state["ask"]}))
+            CACHE.write_text(json.dumps({**fields, "ask": state["ask"], "ci_fail": state["ci_fail"]}))
         except Exception as e:
             print("github:", e, flush=True)
         time.sleep(10)
@@ -278,15 +278,17 @@ def pr_health(pulls, repo, number):
     threads = sum(not t["isResolved"] for t in pr["reviewThreads"]["nodes"])
     commit = pr["commits"]["nodes"][0]["commit"] if pr["commits"]["nodes"] else {}
     contexts = ((commit.get("statusCheckRollup") or {}).get("contexts") or {}).get("nodes", [])
-    green = True
+    green, failing = True, False
     for c in contexts:
         if not c.get("isRequired"):
             continue
         if c["__typename"] == "CheckRun":
             green &= c["status"] == "COMPLETED" and c["conclusion"] in ("SUCCESS", "SKIPPED", "NEUTRAL")
+            failing |= c["conclusion"] in ("FAILURE", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED", "STARTUP_FAILURE")
         else:
             green &= c["state"] == "SUCCESS"
-    return green, threads
+            failing |= c["state"] in ("FAILURE", "ERROR")
+    return green, threads, failing
 
 
 def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
@@ -307,7 +309,7 @@ def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
     key = (p["head"]["sha"], p["updated_at"])
     cached = verdicts.get(ref)
     if not cached or cached[0] != key or time.time() - cached[1] > 120:
-        verdicts[ref] = (key, time.time(), *pr_health(pulls, repo, p["number"]))
+        verdicts[ref] = (key, time.time(), *pr_health(pulls, repo, p["number"])[:2])
     _, _, green, threads = verdicts[ref]
     if not green:
         return False, "required checks not green", False
@@ -351,13 +353,17 @@ def ask_loop(cfg, pulls):
 def threads_loop(pulls):
     while pulls.tick == 0:
         time.sleep(1)
+    failing = set(state.get("ci_fail") or [])
     while True:
         for ref, (repo, p) in list(pulls.open_now.items()):
             try:
-                pulls.threads[ref] = pr_health(pulls, repo, p["number"])[1]
+                _, pulls.threads[ref], broken = pr_health(pulls, repo, p["number"])
+                (failing.add if broken else failing.discard)(ref)
             except Exception as e:
-                print("threads:", ref, e, flush=True)
-        time.sleep(45)
+                print("checks:", ref, e, flush=True)
+        failing &= set(pulls.open_now)
+        publish(ci_fail=sorted(failing))
+        time.sleep(30)
 
 
 def find_session(cfg):
@@ -550,6 +556,10 @@ def demo_loop():
             publish(alert={"ref": "409", "kind": "commented", "until": time.time() + 12})
         if tick % 70 == 32:
             publish(alert=None)
+        if tick % 70 == 52:
+            publish(ci_fail=["w88"])
+        if tick % 70 == 66:
+            publish(ci_fail=[])
         time.sleep(1)
 
 
@@ -587,7 +597,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         body = f.read_bytes()
-        types = {"html": "text/html", "js": "text/javascript", "css": "text/css", "png": "image/png", "svg": "image/svg+xml", "webp": "image/webp"}
+        types = {"html": "text/html", "js": "text/javascript", "css": "text/css", "png": "image/png", "svg": "image/svg+xml", "webp": "image/webp", "mp3": "audio/mpeg"}
         self.send_response(200)
         self.send_header("Content-Type", types.get(f.suffix[1:], "application/octet-stream"))
         self.send_header("Content-Length", str(len(body)))
