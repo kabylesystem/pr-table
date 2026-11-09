@@ -44,7 +44,7 @@ Thumbnail: `logo-240.png`.
 > 🟢 **Next · Review · Merged**, nothing else
 > 🔴 **One red line** when a PR actually needs me (reviewer requested, checks green, no open threads, not posted on Slack since the last push). Everything else says `nothing`.
 > 🤖 **Live from Claude Code**: the PR my agent is touching glows, and every sub-agent it spawns gets its own spinning line
-> 🎉 **A merge party**: 8 seconds of 3D "MERGED", confetti and the crew jumping
+> 🎉 **A merge party**: 20 seconds of 3D "MERGED", confetti and the crew jumping
 >
 > It's free and open source, runs 100% on your machine, and the demo needs zero setup: `python3 server.py --demo`.
 >

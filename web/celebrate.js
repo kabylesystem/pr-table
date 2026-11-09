@@ -34,6 +34,12 @@ function confetti(canvas, ms) {
   burst(W / 2, H * 0.42, 260, 22);
   setTimeout(() => { burst(W * 0.15, H, 120, 26); burst(W * 0.85, H, 120, 26); }, 500);
   setTimeout(() => burst(W / 2, H * 0.42, 160, 16), 1300);
+  for (let t = 3000; t < ms - 2500; t += 2500) {
+    setTimeout(() => {
+      burst(W * (0.2 + Math.random() * 0.6), H * (0.2 + Math.random() * 0.4), 140, 18);
+      burst(Math.random() < 0.5 ? W * 0.1 : W * 0.9, H, 90, 26);
+    }, t);
+  }
   const start = performance.now();
   const frame = now => {
     ctx.clearRect(0, 0, W, H);
@@ -55,13 +61,13 @@ function celebrate(ref) {
   document.getElementById("party-crew").innerHTML = crew.map(src => `<img src="${src}" alt="">`).join("");
   party.classList.remove("on"); void party.offsetWidth; party.classList.add("on");
   document.body.classList.remove("shake"); void document.body.offsetWidth; document.body.classList.add("shake");
-  confetti(document.getElementById("confetti"), 7600);
+  confetti(document.getElementById("confetti"), 19600);
   partyTimer = setTimeout(() => {
     party.classList.remove("on");
     document.body.classList.remove("shake");
     partyTimer = null;
     if (partyQueue.length) setTimeout(() => celebrate(partyQueue.shift()), 400);
-  }, 8000);
+  }, 20000);
 }
 
 const previewRef = new URLSearchParams(location.search).get("celebrate");

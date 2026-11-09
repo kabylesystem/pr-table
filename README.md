@@ -19,7 +19,7 @@ PR Table answers it on a spare monitor, without opening a single tab:
 - **One action, in red.** Every PR gets a label that says what *you* do. Only one of them is an action: `📣 post on Slack`. Everything else starts with `nothing`.
 - **Live from your Claude Code session.** It tails the session file, so the PR your agent is working on glows, and every sub-agent it launches gets its own spinning line while it works.
 - **A reviewer alert.** When your reviewer comments, their name takes over the whole screen for 45 seconds.
-- **A merge party.** Every merge triggers 8 seconds of 3D "MERGED", shockwaves, confetti and your crew jumping around.
+- **A merge party.** Every merge triggers 20 seconds of 3D "MERGED", shockwaves, confetti and your crew jumping around.
 
 <p align="center"><img src="launch/gallery/board.png" width="900" alt="The board"></p>
 

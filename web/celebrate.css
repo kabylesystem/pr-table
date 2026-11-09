@@ -1,12 +1,12 @@
 .party { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; overflow: hidden; background: radial-gradient(circle at 50% 45%, #a3e63533, transparent 60%), #05070afa; }
-.party.on { display: grid; animation: party-in .25s ease-out, party-out .6s ease-in 7.4s forwards; }
+.party.on { display: grid; animation: party-in .25s ease-out, party-out .6s ease-in 19.4s forwards; }
 @keyframes party-in { from { background-color: #a3e635; } }
 @keyframes party-out { to { opacity: 0; } }
 .party canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .party .ring { position: absolute; left: 50%; top: 42%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 6px solid #a3e635; opacity: 0; }
-.party.on .ring { animation: ring 1.2s cubic-bezier(.1,.7,.3,1) .35s; }
+.party.on .ring { animation: ring 4s cubic-bezier(.1,.7,.3,1) .35s infinite; }
 .party.on .ring.r2 { animation-delay: .6s; border-color: #ff9a5a; }
-@keyframes ring { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(60); } }
+@keyframes ring { 0% { opacity: 1; transform: scale(1); } 30% { opacity: 0; transform: scale(60); } 100% { opacity: 0; transform: scale(60); } }
 .party .copy { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; margin-top: -260px; }
 .party .word { font-family: "Bungee", sans-serif; font-size: 230px; line-height: 1; color: #c8ff5a; transform: skew(-9deg); letter-spacing: .02em;
   text-shadow: 2px 2px 0 #8fcc2f, 4px 4px 0 #79ad25, 6px 6px 0 #6e9e21, 8px 8px 0 #638f1c, 10px 10px 0 #588018, 12px 12px 0 #4d7114, 14px 14px 0 #426210, 18px 22px 40px #000c, 0 0 120px #a3e63580; }
