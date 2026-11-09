@@ -55,11 +55,22 @@ function placeFigs(layout) {
     return;
   }
   if (layout === "4") {
-    if (!stage.querySelector(".walker")) {
-      stage.innerHTML = `<div class="walker" style="position:absolute; height:150px; display:flex; gap:10px; --from:${W * 0.5}px; --to:${W - 420}px">${imgs(CREW, "", i => `animation-delay:-${i * 0.15}s`)}</div>`;
-    }
-    stage.querySelector(".walker").style.bottom = `${onBar}px`;
     agents.style.paddingRight = `${W * 0.52}px`;
+    const size = `${W}x${H}`;
+    let walker = stage.querySelector(".walker");
+    if (!walker || walker.dataset.size !== size) {
+      stage.innerHTML = `<div class="walker" data-size="${size}" style="position:absolute; height:150px; display:flex; gap:10px; visibility:hidden">${imgs(CREW, "", i => `animation-delay:-${i * 0.15}s`)}</div>`;
+      walker = stage.querySelector(".walker");
+      const lane = () => {
+        const from = W * 0.56;
+        const to = Math.max(from, W - 88 - walker.offsetWidth);
+        walker.style.setProperty("--from", `${from}px`);
+        walker.style.setProperty("--to", `${to}px`);
+        walker.style.visibility = "visible";
+      };
+      Promise.all([...walker.querySelectorAll("img")].map(img => img.decode().catch(() => {}))).then(lane);
+    }
+    walker.style.bottom = `${onBar}px`;
   }
 }
 
