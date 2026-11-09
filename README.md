@@ -47,7 +47,7 @@ Requirements: Python 3.10+ (standard library only), a GitHub token, any modern b
 | Label | When | What you do |
 |---|---|---|
 | `📣 post on Slack` (red) | Your reviewer is requested, required checks are green, 0 unresolved threads, the PR description contains your ready marker (`Open points: none` by default), and nobody posted about it on Slack since the last push | Post it or ping again. The line disappears within 15 s once you do. |
-| `nothing · we fix` | The reviewer or a review bot commented after your last push | Nothing, your agent is on it |
+| `nothing · we fix` | A review thread is still open, the reviewer requested changes after your last push, or you pushed after their review and still have to re-request them | Nothing, your agent is on it |
 | `nothing · waiting for <reviewer>` | Reviewer requested, nothing new from them | Nothing |
 | `nothing · <reviewer> decides` | Set by you in `data/status.json` when the call is theirs | Nothing |
 | `paused`, `draft` | `data/paused.json`, or a draft PR | Nothing |

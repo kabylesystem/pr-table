@@ -132,7 +132,8 @@ class Pulls:
         self.seen_reviewer = set()
         self.first_pass = True
         self.reviewer_last = {}
-        self.bot_last = {}
+        self.reviewer_review = {}
+        self.threads = {}
         self.push_time = {}
         self.open_now = {}
         self.alert = None
@@ -174,8 +175,6 @@ class Pulls:
                 ref = cfg.ref(repo, int(c["pull_request_url"].rsplit("/", 1)[1]))
                 if c["user"]["login"] == reviewer:
                     self.note_reviewer(ref, f"c{c['id']}", c["created_at"], "commented")
-                elif c["user"]["login"].endswith("[bot]"):
-                    self.bot_last[ref] = max(self.bot_last.get(ref, ""), c["created_at"])
         for ref, (repo, p) in open_now.items():
             if self.updated.get(ref) == p["updated_at"]:
                 continue
@@ -184,6 +183,7 @@ class Pulls:
             self.push_time[ref] = head["commit"]["committer"]["date"]
             for r in self.gh.get(f"/repos/{repo}/pulls/{p['number']}/reviews?per_page=100"):
                 if r["user"]["login"] == reviewer and r.get("submitted_at"):
+                    self.reviewer_review[ref] = max(self.reviewer_review.get(ref, ("", "")), (r["submitted_at"], r["state"]))
                     kind = {"APPROVED": "approved", "CHANGES_REQUESTED": "asked changes"}.get(r["state"], "commented")
                     self.note_reviewer(ref, f"r{r['id']}", r["submitted_at"], kind)
         self.first_pass = False
@@ -201,11 +201,11 @@ class Pulls:
             status = override
         elif p.get("draft"):
             status = "draft"
-        elif max(self.reviewer_last.get(ref, ""), self.bot_last.get(ref, "")) > pushed:
+        elif self.threads.get(ref, 0) > 0 or self.reviewer_review.get(ref, ("", ""))[1] == "CHANGES_REQUESTED" and self.reviewer_review[ref][0] > pushed:
             status = "fix"
         elif self.cfg.reviewer.get("login") in requested:
             status = "waiting"
-        elif self.reviewer_last.get(ref):
+        elif self.reviewer_review.get(ref) and pushed > self.reviewer_review[ref][0]:
             status = "fix"
         else:
             status = "waiting"
@@ -346,6 +346,18 @@ def ask_loop(cfg, pulls):
         except Exception as e:
             print("ask:", e, flush=True)
         time.sleep(5 if shown else 30)
+
+
+def threads_loop(pulls):
+    while pulls.tick == 0:
+        time.sleep(1)
+    while True:
+        for ref, (repo, p) in list(pulls.open_now.items()):
+            try:
+                pulls.threads[ref] = pr_health(pulls, repo, p["number"])[1]
+            except Exception as e:
+                print("threads:", ref, e, flush=True)
+        time.sleep(45)
 
 
 def find_session(cfg):
@@ -601,6 +613,7 @@ def main():
         pulls = Pulls(cfg)
         threading.Thread(target=github_loop, args=(cfg, pulls), daemon=True).start()
         threading.Thread(target=ask_loop, args=(cfg, pulls), daemon=True).start()
+        threading.Thread(target=threads_loop, args=(pulls,), daemon=True).start()
         threading.Thread(target=transcript_loop, args=(Transcript(cfg, pulls),), daemon=True).start()
         port = args.port or cfg.port
     print(f"PR Table on http://127.0.0.1:{port}", flush=True)
