@@ -134,6 +134,7 @@ class Pulls:
         self.reviewer_last = {}
         self.reviewer_review = {}
         self.threads = {}
+        self.slack = {}
         self.push_time = {}
         self.open_now = {}
         self.alert = None
@@ -191,6 +192,21 @@ class Pulls:
         self.open_now = open_now
         return open_now
 
+    def slack_seen(self, ref):
+        seen = self.slack.get(ref, 0)
+        bare = ref.lstrip("abcdefghijklmnopqrstuvwxyz")
+        if bare != ref and bare not in self.known_refs:
+            seen = max(seen, self.slack.get(bare, 0))
+        return seen
+
+    def announced_waiting(self, ref, pushed, reacted_at):
+        if not pushed:
+            return False
+        posted = self.slack_seen(ref)
+        if posted <= iso_ts(pushed):
+            return False
+        return not (reacted_at and iso_ts(reacted_at) > posted)
+
     def review_state(self, ref, p):
         pushed = self.push_time.get(ref, "")
         requested = {r["login"] for r in p.get("requested_reviewers", [])}
@@ -201,6 +217,8 @@ class Pulls:
             status = override
         elif p.get("draft"):
             status = "draft"
+        elif self.announced_waiting(ref, pushed, max(self.reviewer_review.get(ref, ("", ""))[0], self.reviewer_last.get(ref, ""))):
+            status = "waiting"
         elif self.threads.get(ref, 0) > 0 or self.reviewer_review.get(ref, ("", ""))[1] == "CHANGES_REQUESTED" and self.reviewer_review[ref][0] > pushed:
             status = "fix"
         elif self.cfg.reviewer.get("login") in requested:
@@ -295,7 +313,7 @@ def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
     requested = {r["login"] for r in p.get("requested_reviewers", [])}
     if load_json(DATA / "status.json", {}).get(ref) == "ask":
         pushed = pulls.push_time.get(ref)
-        if pushed and slack is not None and slack.get(ref, 0) > iso_ts(pushed):
+        if pushed and slack is not None and pulls.slack_seen(ref) > iso_ts(pushed):
             return False, "already posted after the last push", True
         return True, "forced by status.json", False
     if p.get("draft"):
@@ -309,7 +327,7 @@ def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
     pushed = pulls.push_time.get(ref)
     if not pushed:
         return False, "push time unknown", False
-    if slack is not None and slack.get(ref, 0) > iso_ts(pushed):
+    if slack is not None and pulls.slack_seen(ref) > iso_ts(pushed):
         return False, "already posted after the last push", True
     key = (p["head"]["sha"], p["updated_at"])
     cached = verdicts.get(ref)
@@ -332,6 +350,7 @@ def ask_loop(cfg, pulls):
         try:
             if time.time() - slack_at > (10 if shown else 120):
                 slack, slack_at = slack_latest(cfg), time.time()
+                pulls.slack = slack or {}
             keep = set()
             for ref, (repo, p) in list(pulls.open_now.items()):
                 try:

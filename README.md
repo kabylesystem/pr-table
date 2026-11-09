@@ -53,6 +53,7 @@ Requirements: Python 3.10+ (standard library only), a GitHub token, any modern b
 |---|---|---|
 | `📣 post on Slack` (red) | Your reviewer is requested, required checks are green, 0 unresolved threads, the PR description contains your ready marker (`Open points: none` by default), and nobody posted about it on Slack since the last push | Post it or ping again. The line disappears within 15 s once you do. |
 | `nothing · we fix` | A review thread is still open, the reviewer requested changes after your last push, or you pushed after their review and still have to re-request them | Nothing, your agent is on it |
+| `nothing · waiting for <reviewer>` (after posting) | You announced the PR on Slack after its last push and the reviewer has not reacted since. Open bot threads no longer count: you decided it was ready. `#88` in Slack also counts for `w88` | Nothing |
 | `nothing · waiting for <reviewer>` | Reviewer requested, nothing new from them | Nothing |
 | `nothing · <reviewer> decides` | Set by you in `data/status.json` when the call is theirs | Nothing |
 
@@ -103,11 +104,12 @@ Real CC0 recordings, credited in `web/sfx/CREDITS.md`: a stadium crowd on merge,
 
 ## Layout guarantee
 
-The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut:
+The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule:
 
 ```bash
 python3 server.py --demo &
 uv run --with playwright python tests/layout_check.py
+python3 tests/test_status.py
 ```
 
 ## Privacy
