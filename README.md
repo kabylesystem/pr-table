@@ -41,7 +41,7 @@ Open http://127.0.0.1:4950 and press F11. The demo invents PRs, agents and a mer
 2. Log in to GitHub once: `gh auth login` (or export `GITHUB_TOKEN`).
 3. `python3 server.py`, then open http://127.0.0.1:4950 fullscreen on your second monitor.
 
-Linux users can let `bin/pr-table` do the fullscreen part: `bin/pr-table` toggles a kiosk window on your external monitor (Chromium, Chrome, Brave or Edge, with Hyprland support), `bin/pr-table party 1234` replays the merge animation for whoever is watching. A ready-made systemd unit lives in `contrib/pr-table.service`.
+Linux users can let `bin/pr-table` do the fullscreen part: `bin/pr-table` toggles a kiosk window on your external monitor in about 100 ms (on Hyprland the kiosk keeps running in a hidden special workspace; `bin/pr-table warm` pre-launches it at login, `bin/pr-table quit` closes it) (Chromium, Chrome, Brave or Edge, with Hyprland support), `bin/pr-table party 1234` replays the merge animation for whoever is watching. A ready-made systemd unit lives in `contrib/pr-table.service`.
 
 For a team screen, run it on any machine and open it from the TV or Raspberry Pi on your network: `python3 server.py --host 0.0.0.0`, then browse to `http://<that-machine>:4950`.
 
@@ -55,6 +55,8 @@ Requirements: Python 3.10+ (standard library only), a GitHub token, any modern b
 | `nothing · we fix` | A review thread is still open, the reviewer requested changes after your last push, or you pushed after their review and still have to re-request them | Nothing, your agent is on it |
 | `nothing · waiting for <reviewer>` | Reviewer requested, nothing new from them | Nothing |
 | `nothing · <reviewer> decides` | Set by you in `data/status.json` when the call is theirs | Nothing |
+
+`data/status.json` also accepts `"ask"` (`{"412": "ask"}`): the line turns red until the first Slack message about that PR after its last push, whatever the other conditions. Handy when your agent decides a PR is ready.
 | `paused`, `draft` | `data/paused.json`, or a draft PR | Nothing |
 
 The red line is built to be boringly stable: it survives restarts (state is cached), a single failed check run or API hiccup never hides it, and every time it appears or disappears the reason is written to `~/.cache/pr-table/ask.log`.
@@ -98,6 +100,15 @@ The default look is the 3D title with the crew walking on the bottom line. Try o
 ## Sound
 
 Real CC0 recordings, credited in `web/sfx/CREDITS.md`: a stadium crowd on merge, a doorbell when your reviewer comments, a disappointed "ohhh" when CI breaks. Press `m` or open `?mute=1` to mute. Browsers block sound until you click once; `bin/pr-table` starts the kiosk with autoplay allowed.
+
+## Layout guarantee
+
+The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut:
+
+```bash
+python3 server.py --demo &
+uv run --with playwright python tests/layout_check.py
+```
 
 ## Privacy
 

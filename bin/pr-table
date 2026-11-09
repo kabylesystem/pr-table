@@ -19,9 +19,56 @@ serve() {
     echo "server did not start" >&2; exit 1
 }
 
+HIDDEN="special:prtable"
+
 window() {
     command -v hyprctl >/dev/null || return 0
-    hyprctl clients -j | python3 -c 'import json,sys;[print(c["address"]) for c in json.load(sys.stdin) if c["title"].startswith("PR Table")]' | head -1
+    hyprctl clients -j | python3 -c 'import json,sys;[print(c["address"], c["workspace"]["name"]) for c in json.load(sys.stdin) if c["title"].startswith("PR Table")]' | head -1
+}
+
+external_ws() {
+    hyprctl monitors -j | python3 -c 'import json,sys;m=[x for x in json.load(sys.stdin) if not x["name"].startswith("eDP")];print(m[0]["activeWorkspace"]["id"] if m else "")'
+}
+
+launch() {
+    serve
+    [ -z "$BROWSER" ] && { echo "Open $URL in any browser and press F11"; return 0; }
+    mkdir -p "$PROFILE"
+    flags="--user-data-dir=$PROFILE --no-first-run --no-default-browser-check --hide-crash-restore-bubble --noerrdialogs --autoplay-policy=no-user-gesture-required --incognito --kiosk $URL"
+    if [ -n "${1:-}" ] && command -v hyprctl >/dev/null; then
+        hyprctl dispatch exec "[workspace $1 silent] $BROWSER $flags" >/dev/null
+    else
+        nohup "$BROWSER" $flags >/dev/null 2>&1 &
+    fi
+}
+
+show() {
+    read -r addr _ <<<"$(window)"
+    if [ -n "${addr:-}" ]; then
+        ws="$(external_ws)"
+        hyprctl dispatch movetoworkspacesilent "${ws:-1},address:$addr" >/dev/null
+    elif [ -z "$(browser_pids)" ]; then
+        command -v hyprctl >/dev/null && launch "$(external_ws)" || launch
+    fi
+}
+
+hide() {
+    read -r addr _ <<<"$(window)"
+    if [ -n "${addr:-}" ]; then
+        hyprctl dispatch movetoworkspacesilent "$HIDDEN,address:$addr" >/dev/null
+    else
+        quit
+    fi
+}
+
+warm() {
+    [ -n "$(browser_pids)" ] && return 0
+    command -v hyprctl >/dev/null && launch "$HIDDEN" || true
+}
+
+quit() {
+    pids="$(browser_pids)"
+    [ -n "$pids" ] && kill $pids
 }
 
 browser_pids() {
@@ -30,32 +77,13 @@ browser_pids() {
     done
 }
 
-show() {
-    serve
-    [ -z "$BROWSER" ] && { echo "Open $URL in any browser and press F11"; return 0; }
-    [ -n "$(browser_pids)" ] && return 0
-    mkdir -p "$PROFILE"
-    flags="--user-data-dir=$PROFILE --no-first-run --no-default-browser-check --hide-crash-restore-bubble --noerrdialogs --autoplay-policy=no-user-gesture-required --kiosk $URL"
-    if command -v hyprctl >/dev/null; then
-        ws="$(hyprctl monitors -j | python3 -c 'import json,sys;m=[x for x in json.load(sys.stdin) if not x["name"].startswith("eDP")];print(m[0]["activeWorkspace"]["id"] if m else "")')"
-        if [ -n "$ws" ]; then
-            hyprctl dispatch exec "[workspace $ws silent] $BROWSER $flags" >/dev/null
-            return 0
-        fi
-    fi
-    nohup "$BROWSER" $flags >/dev/null 2>&1 &
-}
-
-hide() {
-    pids="$(browser_pids)"
-    [ -n "$pids" ] && kill $pids
-}
-
 case "${1:-toggle}" in
     on) show ;;
     off) hide ;;
-    toggle) if [ -n "$(browser_pids)" ]; then hide; else show; fi ;;
+    toggle) read -r addr where <<<"$(window)"; if { [ -n "${addr:-}" ] && [ "${where:-}" != "$HIDDEN" ]; } || { [ -z "${addr:-}" ] && [ -n "$(browser_pids)" ]; }; then hide; else show; fi ;;
+    warm) warm ;;
+    quit) quit ;;
     demo) shift; python3 "$DIR/server.py" --demo "$@" ;;
     party) curl -s -m 5 "${URL}celebrate?ref=${2:-}" ;;
-    *) echo "usage: pr-table [on|off|toggle|demo|party [ref]]" >&2; exit 2 ;;
+    *) echo "usage: pr-table [on|off|toggle|warm|quit|demo|party [ref]]" >&2; exit 2 ;;
 esac

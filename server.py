@@ -231,7 +231,7 @@ def github_loop(cfg, pulls):
             open_now = pulls.poll()
             merged = sorted((m for ms in pulls.merged.values() for m in ms), key=lambda m: m["at"], reverse=True)
             week = time.time() - 7 * 86400
-            recent = time.time() - 3 * 3600
+            recent = time.time() - 24 * 3600
             alert = pulls.alert if pulls.alert and pulls.alert["until"] > time.time() else None
             review = [pulls.review_state(ref, p) for ref, (_, p) in sorted(open_now.items(), key=lambda kv: kv[1][1]["created_at"])]
             fields = {
@@ -293,6 +293,11 @@ def pr_health(pulls, repo, number):
 
 def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
     requested = {r["login"] for r in p.get("requested_reviewers", [])}
+    if load_json(DATA / "status.json", {}).get(ref) == "ask":
+        pushed = pulls.push_time.get(ref)
+        if pushed and slack is not None and slack.get(ref, 0) > iso_ts(pushed):
+            return False, "already posted after the last push", True
+        return True, "forced by status.json", False
     if p.get("draft"):
         return False, "draft", True
     if ref in load_json(DATA / "paused.json", []):
@@ -584,6 +589,15 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 return
+        if route == "/state":
+            with changed:
+                body = json.dumps(state).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if route == "/celebrate":
             params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)
             ref = re.sub(r"[^A-Za-z0-9]", "", params.get("ref", "")) or (state["merged"][0] if state["merged"] else "PR")
@@ -601,6 +615,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", types.get(f.suffix[1:], "application/octet-stream"))
         self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(body)
 

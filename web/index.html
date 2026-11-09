@@ -13,8 +13,8 @@
 html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: "Geist Mono", monospace; font-weight: 200; }
 body { overflow: hidden; display: grid; grid-template-rows: auto 1fr auto auto; cursor: none; }
 .brand { padding: 44px clamp(16px, 4vw, 88px) 0; font-size: 64px; line-height: 1; color: var(--ink); font-weight: 400; }
-.cols { display: grid; grid-template-columns: 1fr 1.3fr 1fr; padding: 40px clamp(16px, 4vw, 88px) 0; min-height: 0; overflow: hidden; }
-.col { padding: 0 40px; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr); padding: 40px clamp(16px, 4vw, 88px) 0; min-height: 0; overflow: hidden; }
+.col { padding: 0 40px; overflow: hidden; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-height: 0; }
 .col:first-child { border-left: 0; padding-left: 0; }
 .col h2 { font-family: "Bungee", sans-serif; font-size: 40px; font-weight: 400; color: #7fbf2a; transform: skew(-9deg); transform-origin: left bottom; letter-spacing: .02em; margin-bottom: 24px;
   text-shadow: 1px 1px 0 #5f9420, 2px 2px 0 #527f1b, 3px 3px 0 #456b16, 4px 5px 10px #000a; }
@@ -23,8 +23,11 @@ body { overflow: hidden; display: grid; grid-template-rows: auto 1fr auto auto; 
 .bar .sync.stale { color: #ff4d4d; }
 .n { font-size: var(--n, 112px); line-height: 1.02; letter-spacing: -4px; display: flex; align-items: center; gap: 24px; transition: color .4s, text-shadow .4s; animation: arrive .6s ease-out; }
 @keyframes arrive { from { opacity: 0; transform: translateY(16px); } }
-.n small { white-space: nowrap; font-size: 30px; letter-spacing: 0; font-weight: 300; display: inline-flex; align-items: flex-end; gap: 10px; }
-.n small .mini { height: 58px; width: auto; filter: drop-shadow(0 0 10px #ff9a5a55); }
+.n small { white-space: nowrap; font-size: min(30px, calc(var(--n, 112px) * .5)); letter-spacing: 0; font-weight: 300; display: inline-flex; align-items: flex-end; gap: 10px; }
+.n.cut-off { display: none; }
+.more { font-size: 26px; color: var(--dim); }
+.n.stay:not(.breaking), .agent.stay { animation: none; }
+.n small .mini { height: min(58px, calc(var(--n, 112px) * .95)); width: auto; filter: drop-shadow(0 0 10px #ff9a5a55); }
 .alert .who { display: flex; align-items: flex-end; gap: 40px; }
 .alert .who img { height: 300px; width: auto; filter: drop-shadow(0 0 30px #ff9a5a66); }
 .next .n { color: transparent; -webkit-text-stroke: 1.5px #6b7785; }
@@ -98,7 +101,11 @@ let last = null;
 let spin = 0;
 
 function list(el, html) {
-  if (el.dataset.html !== html) { el.innerHTML = html; el.dataset.html = html; }
+  if (el.dataset.html === html) return;
+  const before = new Set([...el.children].map(c => c.dataset.ref).filter(Boolean));
+  el.innerHTML = html;
+  el.dataset.html = html;
+  [...el.children].forEach(c => { if (!c.dataset.ref || before.has(c.dataset.ref)) c.classList.add("stay"); });
 }
 
 let build = null;
@@ -125,17 +132,17 @@ function render(s) {
   if (partySeen === null) partySeen = s.party ? s.party.id : 0;
   else if (s.party && s.party.id !== partySeen) { partySeen = s.party.id; celebrate(s.party.ref); }
   prevMerged = s.merged;
-  list(document.getElementById("next"), s.next.map(e => `<div class="n">${e}</div>`).join(""));
+  list(document.getElementById("next"), s.next.map(e => `<div class="n" data-ref="${e}">${e}</div>`).join(""));
   list(document.getElementById("review"), s.review.map(r =>
     (() => {
       const quiet = r.status === "paused" || r.status === "draft";
       const st = (s.ask || []).includes(r.ref) && !quiet ? "ask" : (s.ci_fail || []).includes(r.ref) && !quiet ? "ci" : r.status;
       const fig = ui.reviewer_figure && ["ask", "waiting", "decides"].includes(st) ? `<img class="mini" src="${ui.reviewer_figure}" alt="">` : "";
-      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}">${r.ref}<small>${LABEL[st] || ""}${fig}</small></div>`;
+      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}" data-ref="${r.ref}">${r.ref}<small>${LABEL[st] || ""}${fig}</small></div>`;
     })()).join(""));
-  list(document.getElementById("merged"), s.merged.map(m => `<div class="n">${m}${(s.merged_recent || []).includes(m) ? `<span class="party-tag">🎉</span>` : ""}</div>`).join(""));
+  list(document.getElementById("merged"), s.merged.map(m => `<div class="n" data-ref="${m}">${m}${(s.merged_recent || []).includes(m) ? `<span class="party-tag">🎉</span>` : ""}</div>`).join(""));
   list(document.getElementById("agents"), s.agents.slice(-4).map(a =>
-    `<div class="agent"><span class="spin"></span><span class="what">${esc(a.text)}</span><span class="now">${esc(a.doing)}</span></div>`).join(""));
+    `<div class="agent" data-ref="${a.id}"><span class="spin"></span><span class="what">${esc(a.text)}</span><span class="now">${esc(a.doing)}</span></div>`).join(""));
   fit();
   document.getElementById("bar").classList.toggle("idle", !s.active);
   document.getElementById("ref").textContent = s.focus || "";
@@ -153,14 +160,36 @@ function render(s) {
 
 function fit() {
   const cols = document.querySelector(".cols");
-  const head = cols.querySelector("h2");
-  const most = Math.max(1, ...[...cols.querySelectorAll(".col > div:not(.figs)")].map(d => d.children.length));
-  const cs = getComputedStyle(cols);
-  const room = cols.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - head.offsetHeight - 24 - 16;
-  cols.style.setProperty("--n", `${Math.max(40, Math.min(112, Math.floor(room / most / 1.04)))}px`);
+  const columns = [...cols.querySelectorAll(".col")];
+  cols.querySelectorAll(".more").forEach(m => m.remove());
+  cols.querySelectorAll(".cut-off").forEach(n => n.classList.remove("cut-off"));
+  const sizes = [];
+  for (let px = 112; px >= 24; px -= 4) sizes.push(px);
+  const fits = px => {
+    cols.style.setProperty("--n", `${px}px`);
+    return columns.every(c => c.scrollHeight <= c.clientHeight + 1);
+  };
+  let lo = 0, hi = sizes.length - 1, best = hi;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (fits(sizes[mid])) { best = mid; hi = mid - 1; } else lo = mid + 1;
+  }
+  const ok = fits(sizes[best]);
+  document.body.classList.toggle("overfull", !ok);
+  if (!ok) columns.forEach(c => {
+    const rows = [...c.querySelectorAll(".n")];
+    let hidden = 0;
+    while (c.scrollHeight > c.clientHeight + 1 && hidden < rows.length - 1) {
+      rows[rows.length - 1 - hidden].classList.add("cut-off");
+      hidden++;
+      const more = c.querySelector(".more") || c.appendChild(Object.assign(document.createElement("div"), { className: "more" }));
+      more.textContent = `+${hidden} more`;
+    }
+  });
 }
 
 addEventListener("resize", fit);
+document.fonts.ready.then(fit);
 
 function tickSync() {
   const el = document.getElementById("sync");
@@ -203,7 +232,11 @@ function connect() {
   es.onmessage = e => render(JSON.parse(e.data));
   es.onerror = () => { es.close(); setTimeout(connect, 2000); };
 }
-connect();
+if (new URLSearchParams(location.search).get("static") === "1") {
+  fetch("/state").then(r => r.json()).then(render);
+} else {
+  connect();
+}
 </script>
 </body>
 </html>
