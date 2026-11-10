@@ -49,18 +49,22 @@ Requirements: Python 3.10+ (standard library only), a GitHub token, any modern b
 
 ## What each label means
 
+Every label answers one question: **who has the ball?** A *hand-over* is your last Slack post about the PR or your last review request. If the reviewer spoke after it (review, comment, or a reply in the Slack thread), the ball is yours.
+
 | Label | When | What you do |
 |---|---|---|
-| `📣 post on Slack` (red) | Your reviewer is requested, required checks are green, 0 unresolved threads, the PR description contains your ready marker (`Open points: none` by default), and nobody posted about it on Slack since the last push | Post it or ping again. The line disappears within 15 s once you do. |
-| `nothing · we fix` | A review thread is still open, the reviewer requested changes after your last push, or you pushed after their review and still have to re-request them | Nothing, your agent is on it |
-| `nothing · waiting for <reviewer>` (after posting) | You announced the PR on Slack after its last push and the reviewer has not reacted since. Open bot threads no longer count: you decided it was ready. `#88` in Slack also counts for `w88` | Nothing |
-| `nothing · waiting for <reviewer>` | Reviewer requested, nothing new from them | Nothing |
-| `nothing · <reviewer> decides` | Set by you in `data/status.json` when the call is theirs | Nothing |
-
-`data/status.json` also accepts `"ask"` (`{"412": "ask"}`): the line turns red until the first Slack message about that PR after its last push, whatever the other conditions. Handy when your agent decides a PR is ready.
+| `📣 post on Slack` (red) | Your reviewer is requested, required checks are green, 0 unresolved threads, the PR description contains your ready marker (`Open points: none` by default), the reviewer has not spoken since your last hand-over, and nobody posted about it on Slack since the last push | Post it. The line disappears within seconds once you do |
+| `nothing · we fix` | The reviewer spoke after your last hand-over, or a review thread is open and you have not announced the PR since the last push | Nothing, your agent is on it |
+| `nothing · waiting for <reviewer>` | You handed it over (requested or posted) and the reviewer has been silent since. Open bot threads no longer count once you announced it after the last push. `#88` in Slack also counts for `w88` | Nothing |
+| `nothing · we finish it` | Never requested, never announced, never reviewed | Nothing |
+| `nothing · <reviewer> decides` | Hand-set in `data/status.json` | Nothing |
 | `paused`, `draft` | `data/paused.json`, or a draft PR | Nothing |
 
-The red line is built to be boringly stable: it survives restarts (state is cached), a single failed check run or API hiccup never hides it, and every time it appears or disappears the reason is written to `~/.cache/pr-table/ask.log`.
+**Hand-set labels expire on their own.** `data/status.json` (`{"412": "decides"}`, `"fix"`, `"waiting"` or `"ask"`) and `data/paused.json` are stamped the moment PR Table first sees them, and removed from the file at the next event on that PR: a push, a review request, a Slack post, or anything the reviewer says. A label can never outlive the situation it was set for. `"ask"` turns the line red until that next event, usually your Slack post.
+
+**A label is only computed from data that agrees.** The REST poll (every 5 s) and the GraphQL scan (reviews, comments, review requests, threads, checks) must have seen the same head commit and the same last update of the PR. If they disagree, PR Table rescans that PR on the spot and keeps the previous label until both sources match.
+
+Every label change, held label and expiry is written with its reason to `~/.cache/pr-table/labels.log`, and the reason is in `/state` (`why`). The red line's decisions go to `~/.cache/pr-table/ask.log`.
 
 ## Configuration
 
@@ -75,9 +79,9 @@ The red line is built to be boringly stable: it survives restarts (state is cach
 | `ready_marker` | Text that marks a PR description as ready for review |
 | `next.clones` + `next.branch_pattern` | Local branches that match and have no PR yet show up in **Next** |
 | `claude.session_file` | Pin a Claude Code session file. Leave empty to follow the most recent session, or set `claude.hyprland_workspace` to follow the one running in a given workspace |
-| `slack` | Optional. A token in `$SLACK_TOKEN` with `channels:history` and the channel id where PRs get posted (`#123` or `w#42` at the start of a message) |
+| `slack` | Optional. A token in `$SLACK_TOKEN` with `channels:history`, the channel id where PRs get posted (`#123` or `w#42` at the start of a message), and the Slack user ids `me` and `reviewer`, so your thread replies count as hand-overs and the reviewer's as the reviewer speaking |
 
-GitHub is polled every 10 s with ETags, so unchanged responses cost nothing against your rate limit. The bottom right corner shows the last successful sync and turns red past 60 s.
+GitHub is polled every 5 s with ETags, so unchanged responses cost nothing against your rate limit. The bottom right corner shows the last successful sync and turns red past 60 s.
 
 ## Make the crew look like your team
 
@@ -104,7 +108,7 @@ Real CC0 recordings, credited in `web/sfx/CREDITS.md`: a stadium crowd on merge,
 
 ## Layout guarantee
 
-The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule:
+The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule: 20 fixed cases, 50,000 random timelines compared with an independent oracle, and the expiry of hand-set labels:
 
 ```bash
 python3 server.py --demo &

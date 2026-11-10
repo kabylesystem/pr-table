@@ -19,10 +19,15 @@ WEB = ROOT / "web"
 DATA = ROOT / "data"
 CACHE = Path.home() / ".cache/pr-table/last.json"
 ASK_LOG = Path.home() / ".cache/pr-table/ask.log"
+LABEL_LOG = Path.home() / ".cache/pr-table/labels.log"
+STAMPS = Path.home() / ".cache/pr-table/hand-set-stamps.json"
 ALERT_SECONDS = 45
 GRAPHQL_PR = """query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){
-mergeable reviewThreads(first:100){nodes{isResolved}}
-commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename
+updatedAt mergeable reviewThreads(first:100){nodes{isResolved}}
+timelineItems(last:10,itemTypes:[REVIEW_REQUESTED_EVENT]){nodes{... on ReviewRequestedEvent{createdAt requestedReviewer{... on User{login}}}}}
+reviews(last:50){nodes{author{login} state submittedAt}}
+comments(last:50){nodes{author{login} createdAt}}
+commits(last:1){nodes{commit{oid committedDate statusCheckRollup{contexts(first:100){nodes{__typename
 ... on CheckRun{status conclusion isRequired(pullRequestNumber:$n)}
 ... on StatusContext{state isRequired(pullRequestNumber:$n)}}}}}}}}}}"""
 
@@ -53,7 +58,56 @@ def load_json(path, default):
 
 
 def iso_ts(value):
-    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp() if value else 0.0
+
+
+def log_label(line):
+    LABEL_LOG.parent.mkdir(parents=True, exist_ok=True)
+    with LABEL_LOG.open("a") as log:
+        log.write(f"{datetime.now():%F %T} {line}\n")
+
+
+def hand_set_files():
+    return {"status": DATA / "status.json", "paused": DATA / "paused.json"}
+
+
+def hand_set_stamps():
+    entries = {}
+    for kind, path in hand_set_files().items():
+        try:
+            data, mtime = json.loads(path.read_text()), path.stat().st_mtime
+        except (OSError, ValueError):
+            continue
+        for ref, value in (data.items() if kind == "status" else ((r, "paused") for r in data)):
+            entries[f"{kind}:{ref}:{value}"] = mtime
+    known = load_json(STAMPS, {})
+    stamps = {k: known.get(k, mtime) for k, mtime in entries.items()}
+    if stamps != known:
+        STAMPS.parent.mkdir(parents=True, exist_ok=True)
+        STAMPS.write_text(json.dumps(stamps))
+    return stamps
+
+
+def expire_hand_set(pulls):
+    gone = []
+    for entry, stamp in hand_set_stamps().items():
+        kind, ref, value = entry.split(":", 2)
+        if ref in pulls.open_now:
+            last = pulls.last_event(ref, pulls.open_now[ref][1])
+            if last > stamp:
+                gone.append((kind, ref, value, stamp, last))
+    for kind, path in hand_set_files().items():
+        drop = {(ref, value) for k, ref, value, _, _ in gone if k == kind}
+        if not drop:
+            continue
+        data = json.loads(path.read_text())
+        data = {r: v for r, v in data.items() if (r, v) not in drop} if kind == "status" else [r for r in data if (r, "paused") not in drop]
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data))
+        os.replace(tmp, path)
+    for kind, ref, value, stamp, last in gone:
+        log_label(f"{ref} hand-set {value} expired: set {datetime.fromtimestamp(stamp):%F %T}, new event {datetime.fromtimestamp(last):%F %T}")
+    return gone
 
 
 class Config:
@@ -137,6 +191,7 @@ class Pulls:
         self.reviewer_review = {}
         self.threads = {}
         self.conflict = {}
+        self.gfacts = {}
         self.slack = {}
         self.push_time = {}
         self.open_now = {}
@@ -208,52 +263,58 @@ class Pulls:
         self.open_now = open_now
         return open_now
 
-    def slack_seen(self, ref):
-        seen = self.slack.get(ref, 0)
+    def slack_seen(self, ref, who="us"):
+        source = self.slack.get("_reviewer", {}) if who == "reviewer" else self.slack
+        seen = source.get(ref, 0)
         bare = ref.lstrip("abcdefghijklmnopqrstuvwxyz")
         if bare != ref and bare not in self.known_refs:
-            seen = max(seen, self.slack.get(bare, 0))
+            seen = max(seen, source.get(bare, 0))
         return seen
 
-    def announced_waiting(self, ref, pushed, reacted_at):
-        if not pushed:
-            return False
-        posted = self.slack_seen(ref)
-        if posted <= iso_ts(pushed):
-            return False
-        return not (reacted_at and iso_ts(reacted_at) > posted)
+    def facts(self, ref, p):
+        g = self.gfacts.get(ref, {})
+        review = max(self.reviewer_review.get(ref, ("", "")), g.get("review", ("", "")))
+        requested = self.cfg.reviewer.get("login") in {r["login"] for r in p.get("requested_reviewers", [])}
+        pushed = max(iso_ts(self.push_time.get(ref, "")), iso_ts(g.get("pushed", "")))
+        reviewer = max(iso_ts(self.reviewer_last.get(ref, "")), iso_ts(review[0]), iso_ts(g.get("reviewer_last", "")),
+                       self.slack_seen(ref, "reviewer"))
+        slack = self.slack_seen(ref)
+        req_at = iso_ts(g.get("req_at", "")) if requested else 0.0
+        if requested and not req_at:
+            req_at = max(reviewer, pushed, 1.0)
+        return {"pushed": pushed, "review_at": iso_ts(review[0]), "review_state": review[1], "reviewer": reviewer,
+                "slack": slack, "requested": requested, "req_at": req_at, "handover": max(slack, req_at),
+                "threads": self.threads.get(ref, 0), "conflict": bool(self.conflict.get(ref)), "draft": bool(p.get("draft"))}
+
+    def last_event(self, ref, p):
+        f = self.facts(ref, p)
+        return max(f["pushed"], f["reviewer"], f["slack"], f["req_at"] if f["requested"] else 0.0)
 
     def review_state(self, ref, p):
-        pushed = self.push_time.get(ref, "")
-        requested = {r["login"] for r in p.get("requested_reviewers", [])}
+        f = self.facts(ref, p)
         override = load_json(DATA / "status.json", {}).get(ref)
         if ref in load_json(DATA / "paused.json", []):
-            status = "paused"
+            status, why = "paused", "hand-set pause"
         elif override in ("fix", "waiting", "decides"):
-            status = override
-        elif p.get("draft"):
-            status = "draft"
-        elif self.conflict.get(ref):
-            status = "conflict"
-        elif self.announced_waiting(ref, pushed, max(self.reviewer_review.get(ref, ("", ""))[0], self.reviewer_last.get(ref, ""))):
-            status = "waiting"
-        elif self.threads.get(ref, 0) > 0 or self.reviewer_review.get(ref, ("", ""))[1] == "CHANGES_REQUESTED" and self.reviewer_review[ref][0] > pushed:
-            status = "fix"
-        elif self.cfg.reviewer.get("login") in requested:
-            status = "waiting"
-        elif self.reviewer_review.get(ref) and pushed > self.reviewer_review[ref][0]:
-            status = "fix"
-        elif max(self.reviewer_review.get(ref, ("", ""))[0], self.reviewer_last.get(ref, "")) > pushed:
-            status = "fix"
-        elif not self.reviewer_review.get(ref) and not self.reviewer_last.get(ref) and not self.slack_seen(ref):
-            status = "prep"
+            status, why = override, "hand-set in status.json"
+        elif f["draft"]:
+            status, why = "draft", "draft PR"
+        elif f["conflict"]:
+            status, why = "conflict", "conflicts with main"
+        elif f["review_state"] == "APPROVED" and f["review_at"] > f["pushed"] and f["threads"] == 0:
+            status, why = "approved", "approved after the last push"
+        elif f["reviewer"] > f["handover"]:
+            status, why = "fix", "the reviewer spoke after our last hand-over"
+        elif f["threads"] > 0 and f["slack"] <= f["pushed"]:
+            status, why = "fix", "open threads, not announced since the last push"
+        elif f["handover"]:
+            status, why = "waiting", "handed over, reviewer silent since"
         else:
-            status = "waiting"
+            status, why = "prep", "never handed over"
         since = 0
         if status == "waiting":
-            stamps = [self.slack_seen(ref)] + ([iso_ts(pushed)] if pushed else [])
-            since = int(max(stamps))
-        return {"ref": ref, "status": status, "since": since}
+            since = int(max(f["handover"], f["pushed"]))
+        return {"ref": ref, "status": status, "since": since, "why": why}
 
 
 def local_next(cfg, known):
@@ -269,6 +330,32 @@ def local_next(cfg, known):
     return [i for i, _ in sorted(found.items(), key=lambda kv: -kv[1])][:5]
 
 
+def labels(pulls, open_now):
+    try:
+        expire_hand_set(pulls)
+    except Exception as e:
+        print("hand-set:", e, flush=True)
+    behind = lambda ref, p: pulls.gfacts.get(ref, {}).get("updated", "") < p["updated_at"] or pulls.gfacts.get(ref, {}).get("head") != p["head"]["sha"]
+    for ref, (repo, p) in open_now.items():
+        if behind(ref, p):
+            try:
+                _, pulls.threads[ref], _, pulls.conflict[ref], pulls.gfacts[ref] = pr_health(pulls, repo, p["number"])
+            except Exception as e:
+                print("checks:", ref, e, flush=True)
+    before = {r["ref"]: r for r in state.get("review") or []}
+    out = []
+    for ref, (_, p) in sorted(open_now.items(), key=lambda kv: kv[1][1]["created_at"]):
+        if behind(ref, p) and ref in before:
+            out.append(before[ref])
+            log_label(f"{ref} held at {before[ref]['status']}: GraphQL still behind REST")
+            continue
+        label = pulls.review_state(ref, p)
+        if before.get(ref, {}).get("status") != label["status"]:
+            log_label(f"{ref} {before.get(ref, {}).get('status')} -> {label['status']} ({label['why']})")
+        out.append(label)
+    return out
+
+
 def github_loop(cfg, pulls):
     while True:
         try:
@@ -277,7 +364,7 @@ def github_loop(cfg, pulls):
             week = time.time() - 7 * 86400
             recent = time.time() - 24 * 3600
             alert = pulls.alert if pulls.alert and pulls.alert["until"] > time.time() else None
-            review = [pulls.review_state(ref, p) for ref, (_, p) in sorted(open_now.items(), key=lambda kv: kv[1][1]["created_at"])]
+            review = labels(pulls, open_now)
             fields = {
                 "review": review,
                 "merged": [m["ref"] for m in merged if iso_ts(m["at"]) > week][:6],
@@ -304,16 +391,41 @@ def slack_latest(cfg):
     if not body.get("ok"):
         raise RuntimeError(f"Slack: {body.get('error')}")
     labels = {label for _, label in cfg.repos}
-    latest = {}
+    me, reviewer = cfg.slack.get("me", ""), cfg.slack.get("reviewer", "")
+    latest, from_reviewer = {}, {}
     for m in body.get("messages", []):
         hit = re.match(r"\s*(?:PR\s*)?([A-Za-z]*)#(\d+)", m.get("text") or "")
         if not hit or hit.group(1).lower() not in {l.lower() for l in labels} | {""}:
             continue
         label = next((l for l in labels if l.lower() == hit.group(1).lower()), "")
         ref = f"{label}{hit.group(2)}"
-        ts = max(float(m.get("ts", 0)), float(m.get("latest_reply") or 0))
-        latest[ref] = max(latest.get(ref, 0.0), ts)
+        mine = float(m["ts"]) if not me or m.get("user") == me else 0.0
+        if m.get("latest_reply"):
+            if not me and not reviewer:
+                mine = max(mine, float(m["latest_reply"]))
+            else:
+                for reply in slack_replies(token, channel, m["ts"], m["latest_reply"]):
+                    if reply.get("user") == reviewer:
+                        from_reviewer[ref] = max(from_reviewer.get(ref, 0.0), float(reply["ts"]))
+                    elif not me or reply.get("user") == me:
+                        mine = max(mine, float(reply["ts"]))
+        if mine:
+            latest[ref] = max(latest.get(ref, 0.0), mine)
+    latest["_reviewer"] = from_reviewer
     return latest
+
+
+SLACK_THREADS = {}
+
+
+def slack_replies(token, channel, ts, latest_reply):
+    if (ts, latest_reply) not in SLACK_THREADS:
+        req = urllib.request.Request(f"https://slack.com/api/conversations.replies?channel={channel}&ts={ts}&limit=200",
+                                     headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            body = json.loads(r.read())
+        SLACK_THREADS[(ts, latest_reply)] = body.get("messages", [])[1:] if body.get("ok") else []
+    return SLACK_THREADS[(ts, latest_reply)]
 
 
 def pr_health(pulls, repo, number):
@@ -332,7 +444,15 @@ def pr_health(pulls, repo, number):
         else:
             green &= c["state"] == "SUCCESS"
             failing |= c["state"] in ("FAILURE", "ERROR")
-    return green, threads, failing, pr.get("mergeable") == "CONFLICTING"
+    login = pulls.cfg.reviewer.get("login")
+    reviews = [(r["submittedAt"], r["state"]) for r in pr["reviews"]["nodes"]
+               if (r.get("author") or {}).get("login") == login and r.get("submittedAt")]
+    spoke = [r[0] for r in reviews] + [c["createdAt"] for c in pr["comments"]["nodes"] if (c.get("author") or {}).get("login") == login]
+    asked = [e["createdAt"] for e in pr["timelineItems"]["nodes"] if (e.get("requestedReviewer") or {}).get("login") == login]
+    facts = {"updated": pr["updatedAt"], "head": commit.get("oid", ""), "pushed": commit.get("committedDate", ""),
+             "review": max([r for r in reviews if r[1] in ("APPROVED", "CHANGES_REQUESTED", "COMMENTED")], default=("", "")),
+             "reviewer_last": max(spoke, default=""), "req_at": max(asked, default="")}
+    return green, threads, failing, pr.get("mergeable") == "CONFLICTING", facts
 
 
 def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
@@ -346,6 +466,9 @@ def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
         return False, "draft", True
     if ref in load_json(DATA / "paused.json", []):
         return False, "paused", True
+    facts = pulls.facts(ref, p)
+    if facts["reviewer"] > facts["handover"]:
+        return False, "the reviewer spoke after our last hand-over", True
     if cfg.reviewer.get("login") not in requested:
         return False, "reviewer not requested", True
     if cfg.ready_marker and cfg.ready_marker.lower() not in (p.get("body") or "").lower():
@@ -407,7 +530,7 @@ def threads_loop(pulls):
     while True:
         for ref, (repo, p) in list(pulls.open_now.items()):
             try:
-                _, pulls.threads[ref], broken, pulls.conflict[ref] = pr_health(pulls, repo, p["number"])
+                _, pulls.threads[ref], broken, pulls.conflict[ref], pulls.gfacts[ref] = pr_health(pulls, repo, p["number"])
                 (failing.add if broken else failing.discard)(ref)
             except Exception as e:
                 print("checks:", ref, e, flush=True)

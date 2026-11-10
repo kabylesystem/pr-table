@@ -31,6 +31,8 @@
   },
   "slack": {
     "token_env": "SLACK_TOKEN",
-    "channel": ""
+    "channel": "",
+    "me": "",
+    "reviewer": ""
   }
 }
