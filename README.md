@@ -49,7 +49,7 @@ Requirements: Python 3.10+ (standard library only), a GitHub token, any modern b
 
 ## What each label means
 
-Every label answers one question: **who has the ball?** A *hand-over* is your last Slack post about the PR or your last review request. If the reviewer spoke after it (review, comment, or a reply in the Slack thread), the ball is yours.
+Every label answers one question: **who has the ball?** A *hand-over* is your last Slack post about the PR, a thread reply of yours that mentions the reviewer, or your last review request. If the reviewer spoke after it (review, comment, top-level Slack post or thread reply), the ball is yours. "Approved" means the reviewer's latest verdict approves the exact commit at the head of the branch, so a new commit or a dismissed approval drops it. The push time is the latest of the commit date, the last force-push and the moment PR Table first saw that commit.
 
 | Label | When | What you do |
 |---|---|---|
@@ -60,9 +60,19 @@ Every label answers one question: **who has the ball?** A *hand-over* is your la
 | `nothing · <reviewer> decides` | Hand-set in `data/status.json` | Nothing |
 | `paused`, `draft` | `data/paused.json`, or a draft PR | Nothing |
 
-**Hand-set labels expire on their own.** `data/status.json` (`{"412": "decides"}`, `"fix"`, `"waiting"` or `"ask"`) and `data/paused.json` are stamped the moment PR Table first sees them, and removed from the file at the next event on that PR: a push, a review request, a Slack post, or anything the reviewer says. A label can never outlive the situation it was set for. `"ask"` turns the line red until that next event, usually your Slack post.
+**Hand-set labels expire on their own.** Write `data/status.json` as `{"412": "decides"}` (or `"fix"`, `"waiting"`, `"ask"`) and `data/paused.json` as `["412"]`. PR Table rewrites each entry as `{"label": "decides", "after": "<time>"}` the moment it sees it, and removes it at the first event that makes it false:
 
-**A label is only computed from data that agrees.** The REST poll (every 5 s) and the GraphQL scan (reviews, comments, review requests, threads, checks) must have seen the same head commit and the same last update of the PR. If they disagree, PR Table rescans that PR on the spot and keeps the previous label until both sources match.
+| Hand-set | Removed when |
+|---|---|
+| `decides` | the reviewer speaks, or you hand over again |
+| `waiting` | the reviewer speaks |
+| `fix` | you push or hand over |
+| `ask` | you post on Slack, or the reviewer speaks |
+| `paused` | you push |
+
+The stamp lives inside the entry, so a stale copy written back by another tool expires again at once. An agent can write the stamp itself (`"after"`: the time of the last event it saw) to be exact even if PR Table was not running.
+
+**A label is only computed from data that agrees.** The REST poll (every 5 s) and the GraphQL scan (reviews, comments, review requests, force pushes, threads, checks) must have seen the same head commit and the same last update of the PR. If they disagree, PR Table rescans that PR on the spot and keeps the previous label until both sources match, for 30 s at most. While GitHub is still computing mergeability, the last known conflict state is kept.
 
 Every label change, held label and expiry is written with its reason to `~/.cache/pr-table/labels.log`, and the reason is in `/state` (`why`). The red line's decisions go to `~/.cache/pr-table/ask.log`.
 
@@ -79,7 +89,7 @@ Every label change, held label and expiry is written with its reason to `~/.cach
 | `ready_marker` | Text that marks a PR description as ready for review |
 | `next.clones` + `next.branch_pattern` | Local branches that match and have no PR yet show up in **Next** |
 | `claude.session_file` | Pin a Claude Code session file. Leave empty to follow the most recent session, or set `claude.hyprland_workspace` to follow the one running in a given workspace |
-| `slack` | Optional. A token in `$SLACK_TOKEN` with `channels:history`, the channel id where PRs get posted (`#123` or `w#42` at the start of a message), and the Slack user ids `me` and `reviewer`, so your thread replies count as hand-overs and the reviewer's as the reviewer speaking |
+| `slack` | Optional. A token in `$SLACK_TOKEN` with `channels:history`, the channel id where PRs get posted (`#123` or `w#42` at the start of a message), and the Slack user ids `me` and `reviewer`. Every PR ref at the start of a message counts (`#88 w#12`, or a pasted PR link). The last 21 days are read every 2 minutes and remembered, so an old announcement never disappears |
 
 GitHub is polled every 5 s with ETags, so unchanged responses cost nothing against your rate limit. The bottom right corner shows the last successful sync and turns red past 60 s.
 
@@ -108,7 +118,7 @@ Real CC0 recordings, credited in `web/sfx/CREDITS.md`: a stadium crowd on merge,
 
 ## Layout guarantee
 
-The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule: 20 fixed cases, 50,000 random timelines compared with an independent oracle, and the expiry of hand-set labels:
+The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule: 23 fixed cases, 50,000 random timelines compared with an independent oracle, the expiry of hand-set labels, and Slack parsing:
 
 ```bash
 python3 server.py --demo &
