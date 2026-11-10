@@ -1,5 +1,6 @@
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor
 import os
 import random
 import re
@@ -151,30 +152,43 @@ class Pulls:
         if not self.first_pass:
             self.alert = {"ref": ref, "kind": kind, "until": time.time() + ALERT_SECONDS}
 
+    def prefetch(self, paths):
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            return dict(zip(paths, pool.map(self.gh.get, paths)))
+
     def poll(self):
         cfg, open_now = self.cfg, {}
         reviewer = cfg.reviewer.get("login", "")
+        paths = []
         for repo, _ in cfg.repos:
-            for p in self.gh.get(f"/repos/{repo}/pulls?state=open&per_page=100"):
+            paths += [f"/repos/{repo}/pulls?state=open&per_page=100",
+                      f"/repos/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=50",
+                      f"/repos/{repo}/pulls?state=all&per_page=100",
+                      f"/repos/{repo}/issues/comments?since={self.since}&sort=created&direction=desc&per_page=100",
+                      f"/repos/{repo}/pulls/comments?since={self.since}&sort=created&direction=desc&per_page=100"]
+        got = self.prefetch(paths)
+        fetched = lambda path: got[path] if path in got else self.gh.get(path)
+        for repo, _ in cfg.repos:
+            for p in fetched(f"/repos/{repo}/pulls?state=open&per_page=100"):
                 if p["user"]["login"] == cfg.author:
                     open_now[cfg.ref(repo, p["number"])] = (repo, p)
-            if self.tick % 3 == 0:
+            if True:
                 self.merged[repo] = [
                     {"ref": cfg.ref(repo, p["number"]), "at": p["merged_at"]}
-                    for p in self.gh.get(f"/repos/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=50")
+                    for p in fetched(f"/repos/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=50")
                     if p["user"]["login"] == cfg.author and p.get("merged_at")]
-                for p in self.gh.get(f"/repos/{repo}/pulls?state=all&per_page=100"):
+                for p in fetched(f"/repos/{repo}/pulls?state=all&per_page=100"):
                     if p["user"]["login"] == cfg.author:
                         ref = cfg.ref(repo, p["number"])
                         self.known_refs.add(ref)
                         m = cfg.issue_pattern.search(p["head"]["ref"]) or cfg.issue_pattern.search(p["title"])
                         if m:
                             self.issue_to_ref[m.group(1)] = ref
-            for c in self.gh.get(f"/repos/{repo}/issues/comments?since={self.since}&sort=created&direction=desc&per_page=100"):
+            for c in fetched(f"/repos/{repo}/issues/comments?since={self.since}&sort=created&direction=desc&per_page=100"):
                 if c["user"]["login"] == reviewer:
                     ref = cfg.ref(repo, int(c["issue_url"].rsplit("/", 1)[1]))
                     self.note_reviewer(ref, f"c{c['id']}", c["created_at"], "commented")
-            for c in self.gh.get(f"/repos/{repo}/pulls/comments?since={self.since}&sort=created&direction=desc&per_page=100"):
+            for c in fetched(f"/repos/{repo}/pulls/comments?since={self.since}&sort=created&direction=desc&per_page=100"):
                 ref = cfg.ref(repo, int(c["pull_request_url"].rsplit("/", 1)[1]))
                 if c["user"]["login"] == reviewer:
                     self.note_reviewer(ref, f"c{c['id']}", c["created_at"], "commented")
