@@ -3,6 +3,7 @@ import json
 import os
 import random
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -30,7 +31,7 @@ state = {
     "focus": None, "doing": "", "active": False, "agents": [],
     "next": [], "review": [], "merged": [], "merged_recent": [], "ask": [],
     "alert": None, "party": None, "gh_ok": 0, "version": 0, "ci_fail": [],
-    "build": str(int(time.time())), "ui": {},
+    "build": str(int(time.time())), "ui": {}, "visible": True,
 }
 
 
@@ -392,6 +393,23 @@ def threads_loop(pulls):
         time.sleep(15)
 
 
+def table_visible():
+    try:
+        clients = json.loads(subprocess.run(["hyprctl", "clients", "-j"], capture_output=True, text=True, timeout=5).stdout)
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+    win = next((c for c in clients if c.get("title", "").startswith("PR Table")), None)
+    return bool(win) and win["workspace"]["name"] != "special:prtable"
+
+
+def visible_loop():
+    while True:
+        seen = table_visible()
+        if seen is not None:
+            publish(visible=seen)
+        time.sleep(1)
+
+
 def find_session(cfg):
     workspace = cfg.claude.get("hyprland_workspace")
     if cfg.claude.get("session_file"):
@@ -619,6 +637,11 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
+        if route == "/visible":
+            publish(visible=query != "on=0")
+            self.send_response(204)
+            self.end_headers()
+            return
         if route == "/pointer":
             publish(pointer=time.time())
             self.send_response(204)
@@ -666,6 +689,8 @@ def main():
         threading.Thread(target=github_loop, args=(cfg, pulls), daemon=True).start()
         threading.Thread(target=ask_loop, args=(cfg, pulls), daemon=True).start()
         threading.Thread(target=threads_loop, args=(pulls,), daemon=True).start()
+        if shutil.which("hyprctl"):
+            threading.Thread(target=visible_loop, daemon=True).start()
         threading.Thread(target=transcript_loop, args=(Transcript(cfg, pulls),), daemon=True).start()
         port = args.port or cfg.port
     print(f"PR Table on http://{args.host}:{port}", flush=True)

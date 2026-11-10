@@ -67,6 +67,7 @@ body.pointer .clip { cursor: pointer; }
 <link rel="stylesheet" href="looks.css">
 <link rel="stylesheet" href="figs.css">
 <link rel="stylesheet" href="celebrate.css">
+<style>html.paused *, html.paused *::before, html.paused *::after { animation-play-state: paused !important; }</style>
 <style>
 .review .n.ci { color: #ff3b3b; }
 .review .n.ci small { color: var(--dim); }
@@ -132,6 +133,7 @@ function render(s) {
   if (build && s.build !== build) location.reload();
   build = s.build;
   last = s;
+  document.documentElement.classList.toggle("paused", s.visible === false);
   const ui = s.ui || {};
   const LABEL = labels(ui.reviewer || "reviewer");
   const brand = document.querySelector("#brand .word") || document.getElementById("brand");

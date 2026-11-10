@@ -43,6 +43,7 @@ launch() {
 }
 
 show() {
+    curl -s -m 2 -o /dev/null "${URL}visible?on=1" &
     read -r addr _ <<<"$(window)"
     if [ -n "${addr:-}" ]; then
         ws="$(external_ws)"
@@ -57,6 +58,7 @@ hide() {
     read -r addr _ <<<"$(window)"
     if [ -n "${addr:-}" ]; then
         hyprctl dispatch movetoworkspacesilent "$HIDDEN,address:$addr" >/dev/null
+        curl -s -m 2 -o /dev/null "${URL}visible?on=0" &
     else
         quit
     fi
