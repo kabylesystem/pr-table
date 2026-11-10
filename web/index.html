@@ -200,10 +200,12 @@ function fit() {
   const cols = document.querySelector(".cols");
   cols.querySelectorAll(".more").forEach(m => m.remove());
   cols.querySelectorAll(".cut-off").forEach(n => n.classList.remove("cut-off"));
-  const sizes = [];
-  for (let px = 96; px >= 24; px -= 4) sizes.push(px);
-  let ok = true;
-  cols.querySelectorAll(".col").forEach(c => { ok = fitColumn(c, sizes) && ok; });
+  const range = max => { const out = []; for (let px = max; px >= 24; px -= 4) out.push(px); return out; };
+  const review = cols.querySelector(".col.review");
+  let ok = fitColumn(review, range(96));
+  const reviewPx = parseInt(review.style.getPropertyValue("--n")) || 48;
+  const sideMax = Math.min(64, Math.max(36, Math.round(reviewPx * 1.3 / 4) * 4));
+  cols.querySelectorAll(".col:not(.review)").forEach(c => { ok = fitColumn(c, range(sideMax)) && ok; });
   document.body.classList.toggle("overfull", !ok);
 }
 
