@@ -265,7 +265,7 @@ def github_loop(cfg, pulls):
             CACHE.write_text(json.dumps({**fields, "ask": state["ask"], "ci_fail": state["ci_fail"]}))
         except Exception as e:
             print("github:", e, flush=True)
-        time.sleep(10)
+        time.sleep(5)
 
 
 def slack_latest(cfg):
@@ -350,7 +350,7 @@ def ask_loop(cfg, pulls):
     shown = set(state.get("ask") or [])
     while True:
         try:
-            if time.time() - slack_at > (10 if shown else 120):
+            if time.time() - slack_at > (10 if shown else 20):
                 slack, slack_at = slack_latest(cfg), time.time()
                 pulls.slack = slack or {}
             keep = set()
@@ -389,7 +389,7 @@ def threads_loop(pulls):
                 print("checks:", ref, e, flush=True)
         failing &= set(pulls.open_now)
         publish(ci_fail=sorted(failing))
-        time.sleep(30)
+        time.sleep(15)
 
 
 def find_session(cfg):
