@@ -243,6 +243,8 @@ class Pulls:
             status = "waiting"
         elif self.reviewer_review.get(ref) and pushed > self.reviewer_review[ref][0]:
             status = "fix"
+        elif max(self.reviewer_review.get(ref, ("", ""))[0], self.reviewer_last.get(ref, "")) > pushed:
+            status = "fix"
         elif not self.reviewer_review.get(ref) and not self.reviewer_last.get(ref) and not self.slack_seen(ref):
             status = "prep"
         else:
