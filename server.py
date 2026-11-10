@@ -20,7 +20,7 @@ CACHE = Path.home() / ".cache/pr-table/last.json"
 ASK_LOG = Path.home() / ".cache/pr-table/ask.log"
 ALERT_SECONDS = 45
 GRAPHQL_PR = """query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){
-reviewThreads(first:100){nodes{isResolved}}
+mergeable reviewThreads(first:100){nodes{isResolved}}
 commits(last:1){nodes{commit{statusCheckRollup{contexts(first:100){nodes{__typename
 ... on CheckRun{status conclusion isRequired(pullRequestNumber:$n)}
 ... on StatusContext{state isRequired(pullRequestNumber:$n)}}}}}}}}}}"""
@@ -135,6 +135,7 @@ class Pulls:
         self.reviewer_last = {}
         self.reviewer_review = {}
         self.threads = {}
+        self.conflict = {}
         self.slack = {}
         self.push_time = {}
         self.open_now = {}
@@ -218,6 +219,8 @@ class Pulls:
             status = override
         elif p.get("draft"):
             status = "draft"
+        elif self.conflict.get(ref):
+            status = "conflict"
         elif self.announced_waiting(ref, pushed, max(self.reviewer_review.get(ref, ("", ""))[0], self.reviewer_last.get(ref, ""))):
             status = "waiting"
         elif self.threads.get(ref, 0) > 0 or self.reviewer_review.get(ref, ("", ""))[1] == "CHANGES_REQUESTED" and self.reviewer_review[ref][0] > pushed:
@@ -230,7 +233,11 @@ class Pulls:
             status = "prep"
         else:
             status = "waiting"
-        return {"ref": ref, "status": status}
+        since = 0
+        if status == "waiting":
+            stamps = [self.slack_seen(ref)] + ([iso_ts(pushed)] if pushed else [])
+            since = int(max(stamps))
+        return {"ref": ref, "status": status, "since": since}
 
 
 def local_next(cfg, known):
@@ -309,7 +316,7 @@ def pr_health(pulls, repo, number):
         else:
             green &= c["state"] == "SUCCESS"
             failing |= c["state"] in ("FAILURE", "ERROR")
-    return green, threads, failing
+    return green, threads, failing, pr.get("mergeable") == "CONFLICTING"
 
 
 def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
@@ -384,7 +391,7 @@ def threads_loop(pulls):
     while True:
         for ref, (repo, p) in list(pulls.open_now.items()):
             try:
-                _, pulls.threads[ref], broken = pr_health(pulls, repo, p["number"])
+                _, pulls.threads[ref], broken, pulls.conflict[ref] = pr_health(pulls, repo, p["number"])
                 (failing.add if broken else failing.discard)(ref)
             except Exception as e:
                 print("checks:", ref, e, flush=True)

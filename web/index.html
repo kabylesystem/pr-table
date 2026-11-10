@@ -89,6 +89,8 @@ body.quake { animation: quake .9s cubic-bezier(.36,.07,.19,.97) 3; }
 .paused-line { font-size: min(26px, calc(var(--n, 112px) * .45)); color: var(--dim); text-decoration: line-through; padding-top: 6px; }
 .clip { font: inherit; background: none; border: 0; padding: 0 .15em; margin: 0; color: inherit; line-height: 1; border-radius: 8px; transition: transform .15s, background .2s; }
 body.pointer .clip:hover { transform: scale(1.25); background: #ffffff1f; }
+.review .n.conflict small { color: #ff9a5a; }
+.age.late { color: #ff9a5a; font-weight: 400; }
 .clip.done::after { content: " copied ✓"; font-size: .6em; color: var(--neon); }
 </style>
 </head>
@@ -107,7 +109,7 @@ body.pointer .clip:hover { transform: scale(1.25); background: #ffffff1f; }
 <script src="sfx.js"></script>
 <script src="celebrate.js"></script>
 <script>
-const labels = name => ({ prep: "nothing · we finish it", ci: "nothing · CI broke, we fix", ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
+const labels = name => ({ prep: "nothing · we finish it", conflict: "nothing · conflict with main, we fix", ci: "nothing · CI broke, we fix", ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
 const SPIN = ["◜", "◝", "◞", "◟"];
 let last = null;
 let spin = 0;
@@ -156,7 +158,9 @@ function render(s) {
       const st = (s.ask || []).includes(r.ref) && !quiet ? "ask" : (s.ci_fail || []).includes(r.ref) && !quiet ? "ci" : r.status;
       const fig = ui.reviewer_figure && ["ask", "waiting", "decides"].includes(st) ? `<img class="mini" src="${ui.reviewer_figure}" alt="">` : "";
       const copied = st === "ask" && (s.slack_msgs || {})[r.ref] ? `<button class="clip" data-copy="${r.ref}">📋</button>` : "";
-      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}" data-ref="${r.ref}">${r.ref}<small>${LABEL[st] || ""}${copied}${fig}</small></div>`;
+      const hours = st === "waiting" && r.since ? (Date.now() / 1000 - r.since) / 3600 : 0;
+      const wait = hours >= 1 ? `<span class="age ${hours >= 24 ? "late" : ""}"> · ${hours >= 24 ? Math.floor(hours / 24) + " d" : Math.floor(hours) + " h"}</span>` : "";
+      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}" data-ref="${r.ref}">${r.ref}<small>${LABEL[st] || ""}${wait}${copied}${fig}</small></div>`;
     })()).join("") + (pausedRefs.length ? `<div class="paused-line">paused · ${pausedRefs.join(" · ")}</div>` : ""));
   list(document.getElementById("merged"), s.merged.map(m => `<div class="n" data-ref="${m}">${m}${(s.merged_recent || []).includes(m) ? `<span class="party-tag">🎉</span>` : ""}</div>`).join(""));
   list(document.getElementById("agents"), s.agents.slice(-4).map(a =>

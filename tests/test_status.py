@@ -21,6 +21,7 @@ class FakePulls(server.Pulls):
         self.cfg = FakeCfg()
         self.push_time, self.reviewer_review, self.reviewer_last = {}, {}, {}
         self.threads, self.slack, self.known_refs = {}, {}, {"412"}
+        self.conflict = {}
 
 
 PUSH = "2026-11-09T17:00:00Z"
@@ -34,6 +35,7 @@ CASES = [
     ("reviewer asked changes after push", "fix", {"review": ("2026-11-09T17:30:00Z", "CHANGES_REQUESTED")}),
     ("reviewed, pushed after, not requested", "fix", {"review": ("2026-11-09T16:30:00Z", "COMMENTED"), "requested": False}),
     ("draft", "draft", {"draft": True}),
+    ("conflict with main", "conflict", {"conflict": True}),
     ("not requested, not announced, never reviewed", "prep", {"requested": False}),
 ]
 
@@ -46,6 +48,7 @@ def run():
         pulls = FakePulls()
         pulls.push_time[ref] = PUSH
         pulls.threads[ref] = o.get("threads", 0)
+        pulls.conflict[ref] = o.get("conflict", False)
         if "slack" in o:
             pulls.slack[o.get("slack_key", ref)] = o["slack"]
         if "review" in o:
