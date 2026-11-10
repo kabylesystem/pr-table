@@ -12,6 +12,8 @@
 * { box-sizing: border-box; margin: 0; }
 html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: "Geist Mono", monospace; font-weight: 200; }
 body { overflow: hidden; display: grid; grid-template-rows: auto 1fr auto auto; cursor: none; }
+body.pointer { cursor: default; }
+body.pointer .clip { cursor: pointer; }
 .brand { padding: 44px clamp(16px, 4vw, 88px) 0; font-size: 64px; line-height: 1; color: var(--ink); font-weight: 400; }
 .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1fr); padding: 40px clamp(16px, 4vw, 88px) 0; min-height: 0; overflow: hidden; }
 .col { padding: 0 40px; overflow: hidden; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; min-height: 0; }
@@ -79,6 +81,16 @@ body.quake { animation: quake .9s cubic-bezier(.36,.07,.19,.97) 3; }
 .stage.sad img, .brand.sad .inline { filter: grayscale(.7) brightness(.8) drop-shadow(0 0 10px #ff3b3b88) !important; animation: sad 1.4s ease-in-out infinite !important; transform-origin: 50% 100%; }
 @keyframes sad { 0%, 100% { transform: rotate(-4deg) translateY(6px) scaleY(.94); } 50% { transform: rotate(4deg) translateY(10px) scaleY(.9); } }
 </style>
+<style>
+.col > div { align-self: flex-start; max-width: 100%; }
+html.photo-bg .col > div:not(:empty) { background: rgb(5 7 10 / .58); border-radius: 14px; padding: 6px 18px 10px; margin-left: -18px; }
+.review .n.ask small { font-size: min(34px, calc(var(--n, 112px) * .6)) !important; }
+.review .n.prep small { color: var(--dim); }
+.paused-line { font-size: min(26px, calc(var(--n, 112px) * .45)); color: var(--dim); text-decoration: line-through; padding-top: 6px; }
+.clip { font: inherit; background: none; border: 0; padding: 0 .15em; margin: 0; color: inherit; line-height: 1; border-radius: 8px; transition: transform .15s, background .2s; }
+body.pointer .clip:hover { transform: scale(1.25); background: #ffffff1f; }
+.clip.done::after { content: " copied ✓"; font-size: .6em; color: var(--neon); }
+</style>
 </head>
 <body>
 <header class="brand" id="brand">PR TABLE</header>
@@ -95,7 +107,7 @@ body.quake { animation: quake .9s cubic-bezier(.36,.07,.19,.97) 3; }
 <script src="sfx.js"></script>
 <script src="celebrate.js"></script>
 <script>
-const labels = name => ({ ci: "nothing · CI broke, we fix", ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
+const labels = name => ({ prep: "nothing · we finish it", ci: "nothing · CI broke, we fix", ask: "📣 post on Slack", fix: "nothing · we fix", waiting: `nothing · waiting for ${name}`, decides: `nothing · ${name} decides`, paused: "paused", draft: "draft" });
 const SPIN = ["◜", "◝", "◞", "◟"];
 let last = null;
 let spin = 0;
@@ -115,6 +127,7 @@ let ciTimer = null;
 const breaking = new Set();
 let prevMerged = null;
 let partySeen = null;
+let pointerSeen = null;
 
 function render(s) {
   if (build && s.build !== build) location.reload();
@@ -129,17 +142,21 @@ function render(s) {
   if (ui.reviewer_figure) { if (whoFig.getAttribute("src") !== ui.reviewer_figure) whoFig.src = ui.reviewer_figure; whoFig.hidden = false; } else whoFig.hidden = true;
   if (ui.crew) window.setCrew?.(ui.crew);
   if (prevMerged) s.merged.filter(m => !prevMerged.includes(m)).forEach(celebrate);
+  if (pointerSeen === null) pointerSeen = s.pointer || 0;
+  else if (s.pointer && s.pointer !== pointerSeen) { pointerSeen = s.pointer; pointerFor(8000); }
   if (partySeen === null) partySeen = s.party ? s.party.id : 0;
   else if (s.party && s.party.id !== partySeen) { partySeen = s.party.id; celebrate(s.party.ref); }
   prevMerged = s.merged;
   list(document.getElementById("next"), s.next.map(e => `<div class="n" data-ref="${e}">${e}</div>`).join(""));
-  list(document.getElementById("review"), s.review.map(r =>
+  const pausedRefs = s.review.filter(r => r.status === "paused").map(r => r.ref);
+  list(document.getElementById("review"), s.review.filter(r => r.status !== "paused").map(r =>
     (() => {
       const quiet = r.status === "paused" || r.status === "draft";
       const st = (s.ask || []).includes(r.ref) && !quiet ? "ask" : (s.ci_fail || []).includes(r.ref) && !quiet ? "ci" : r.status;
       const fig = ui.reviewer_figure && ["ask", "waiting", "decides"].includes(st) ? `<img class="mini" src="${ui.reviewer_figure}" alt="">` : "";
-      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}" data-ref="${r.ref}">${r.ref}<small>${LABEL[st] || ""}${fig}</small></div>`;
-    })()).join(""));
+      const copied = st === "ask" && (s.slack_msgs || {})[r.ref] ? `<button class="clip" data-copy="${r.ref}">📋</button>` : "";
+      return `<div class="n ${st} ${r.ref === s.focus ? "hot" : ""} ${breaking.has(r.ref) ? "breaking" : ""}" data-ref="${r.ref}">${r.ref}<small>${LABEL[st] || ""}${copied}${fig}</small></div>`;
+    })()).join("") + (pausedRefs.length ? `<div class="paused-line">paused · ${pausedRefs.join(" · ")}</div>` : ""));
   list(document.getElementById("merged"), s.merged.map(m => `<div class="n" data-ref="${m}">${m}${(s.merged_recent || []).includes(m) ? `<span class="party-tag">🎉</span>` : ""}</div>`).join(""));
   list(document.getElementById("agents"), s.agents.slice(-4).map(a =>
     `<div class="agent" data-ref="${a.id}"><span class="spin"></span><span class="what">${esc(a.text)}</span><span class="now">${esc(a.doing)}</span></div>`).join(""));
@@ -158,34 +175,37 @@ function render(s) {
   if (fresh.length) { fresh.forEach(ciBreak); render(s); return; }
 }
 
-function fit() {
-  const cols = document.querySelector(".cols");
-  const columns = [...cols.querySelectorAll(".col")];
-  cols.querySelectorAll(".more").forEach(m => m.remove());
-  cols.querySelectorAll(".cut-off").forEach(n => n.classList.remove("cut-off"));
-  const sizes = [];
-  for (let px = 112; px >= 24; px -= 4) sizes.push(px);
+function fitColumn(c, sizes) {
   const fits = px => {
-    cols.style.setProperty("--n", `${px}px`);
-    return columns.every(c => c.scrollHeight <= c.clientHeight + 1);
+    c.style.setProperty("--n", `${px}px`);
+    return c.scrollHeight <= c.clientHeight + 1;
   };
   let lo = 0, hi = sizes.length - 1, best = hi;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
     if (fits(sizes[mid])) { best = mid; hi = mid - 1; } else lo = mid + 1;
   }
-  const ok = fits(sizes[best]);
+  if (fits(sizes[best])) return true;
+  const rows = [...c.querySelectorAll(".n")];
+  let hidden = 0;
+  while (c.scrollHeight > c.clientHeight + 1 && hidden < rows.length - 1) {
+    rows[rows.length - 1 - hidden].classList.add("cut-off");
+    hidden++;
+    const more = c.querySelector(".more") || c.appendChild(Object.assign(document.createElement("div"), { className: "more" }));
+    more.textContent = `+${hidden} more`;
+  }
+  return false;
+}
+
+function fit() {
+  const cols = document.querySelector(".cols");
+  cols.querySelectorAll(".more").forEach(m => m.remove());
+  cols.querySelectorAll(".cut-off").forEach(n => n.classList.remove("cut-off"));
+  const sizes = [];
+  for (let px = 96; px >= 24; px -= 4) sizes.push(px);
+  let ok = true;
+  cols.querySelectorAll(".col").forEach(c => { ok = fitColumn(c, sizes) && ok; });
   document.body.classList.toggle("overfull", !ok);
-  if (!ok) columns.forEach(c => {
-    const rows = [...c.querySelectorAll(".n")];
-    let hidden = 0;
-    while (c.scrollHeight > c.clientHeight + 1 && hidden < rows.length - 1) {
-      rows[rows.length - 1 - hidden].classList.add("cut-off");
-      hidden++;
-      const more = c.querySelector(".more") || c.appendChild(Object.assign(document.createElement("div"), { className: "more" }));
-      more.textContent = `+${hidden} more`;
-    }
-  });
 }
 
 addEventListener("resize", fit);
@@ -217,6 +237,24 @@ function ciBreak(ref) {
     if (last) render(last);
   }, 6500);
 }
+
+let pointerTimer = null;
+function pointerFor(ms) {
+  document.body.classList.add("pointer");
+  clearTimeout(pointerTimer);
+  pointerTimer = setTimeout(() => document.body.classList.remove("pointer"), ms);
+}
+addEventListener("mousemove", () => pointerFor(8000));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) pointerFor(8000); });
+addEventListener("focus", () => pointerFor(8000));
+document.addEventListener("click", e => {
+  const b = e.target.closest(".clip");
+  if (!b) return;
+  fetch(`/copy?ref=${encodeURIComponent(b.dataset.copy)}`).then(r => {
+    if (r.ok) { b.classList.add("done"); setTimeout(() => b.classList.remove("done"), 4000); }
+  });
+  pointerFor(8000);
+});
 
 function esc(t) {
   return (t || "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));

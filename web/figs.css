@@ -11,6 +11,6 @@ html[data-look="5"][data-fig] .brand .word { transform: skew(-9deg); transform-o
 @keyframes step { 50% { translate: 0 -8px; rotate: 2deg; } }
 .walker { animation: walk-x 40s linear infinite; }
 .walker img { height: 100%; animation: step .6s ease-in-out infinite; }
-html[data-fig="2"] .cols, html[data-fig="3"] .cols, html[data-fig="4"] .cols { padding-bottom: 170px; }
+html[data-fig="2"] .cols, html[data-fig="3"] .cols { padding-bottom: 170px; }
 .crew { height: 100%; width: auto; display: block; filter: drop-shadow(0 0 2px #a3e635) drop-shadow(0 0 16px #a3e63555); }
 .crew.mirror { transform: scaleX(-1); }

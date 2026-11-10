@@ -34,6 +34,7 @@ CASES = [
     ("reviewer asked changes after push", "fix", {"review": ("2026-11-09T17:30:00Z", "CHANGES_REQUESTED")}),
     ("reviewed, pushed after, not requested", "fix", {"review": ("2026-11-09T16:30:00Z", "COMMENTED"), "requested": False}),
     ("draft", "draft", {"draft": True}),
+    ("not requested, not announced, never reviewed", "prep", {"requested": False}),
 ]
 
 

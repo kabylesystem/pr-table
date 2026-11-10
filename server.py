@@ -225,6 +225,8 @@ class Pulls:
             status = "waiting"
         elif self.reviewer_review.get(ref) and pushed > self.reviewer_review[ref][0]:
             status = "fix"
+        elif not self.reviewer_review.get(ref) and not self.reviewer_last.get(ref) and not self.slack_seen(ref):
+            status = "prep"
         else:
             status = "waiting"
         return {"ref": ref, "status": status}
@@ -616,6 +618,11 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+        if route == "/pointer":
+            publish(pointer=time.time())
+            self.send_response(204)
+            self.end_headers()
             return
         if route == "/celebrate":
             params = dict(p.split("=", 1) for p in query.split("&") if "=" in p)

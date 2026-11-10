@@ -50,6 +50,7 @@ show() {
     elif [ -z "$(browser_pids)" ]; then
         command -v hyprctl >/dev/null && launch "$(external_ws)" || launch
     fi
+    curl -s -m 2 -o /dev/null "${URL}pointer" &
 }
 
 hide() {

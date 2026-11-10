@@ -8,7 +8,7 @@ CHECK = """(() => {
       if (n.offsetParent && (r.bottom > box.bottom + 1 || r.right > box.right + 1)) out.push(n.dataset.ref + ' cut');
     });
   });
-  return {n: getComputedStyle(document.querySelector('.cols')).getPropertyValue('--n'), cut: out, visible: [...document.querySelectorAll('#review .n')].filter(n => n.offsetParent).length, more: [...document.querySelectorAll('.more')].map(m => m.textContent)};
+  return {n: [...document.querySelectorAll('.col')].map(c => c.style.getPropertyValue('--n')).join('/'), cut: out, visible: [...document.querySelectorAll('#review .n')].filter(n => n.offsetParent).length, more: [...document.querySelectorAll('.more')].map(m => m.textContent)};
 })()"""
 with sync_playwright() as p:
     b = p.chromium.launch()
