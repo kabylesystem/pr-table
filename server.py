@@ -30,8 +30,8 @@ updatedAt headRefOid mergeable reviewThreads(first:100){nodes{isResolved}}
 opinion: latestOpinionatedReviews(first:20){nodes{author{login} state commit{oid}}}
 forced: timelineItems(last:1,itemTypes:[HEAD_REF_FORCE_PUSHED_EVENT]){nodes{... on HeadRefForcePushedEvent{createdAt}}}
 asked: timelineItems(last:10,itemTypes:[REVIEW_REQUESTED_EVENT]){nodes{... on ReviewRequestedEvent{createdAt requestedReviewer{... on User{login}}}}}
-reviews(last:50){nodes{author{login} state submittedAt}}
-comments(last:50){nodes{author{login} createdAt}}
+reviews(last:50){nodes{id author{login} state submittedAt body comments(first:30){nodes{body}}}}
+comments(last:100){nodes{id author{login} createdAt body}}
 commits(last:1){nodes{commit{oid committedDate statusCheckRollup{contexts(first:100){nodes{__typename
 ... on CheckRun{status conclusion isRequired(pullRequestNumber:$n)}
 ... on StatusContext{state isRequired(pullRequestNumber:$n)}}}}}}}}}}"""
@@ -141,6 +141,7 @@ class Config:
         self.author = raw["github"]["author"]
         self.repos = [(r["name"], r.get("label", "")) for r in raw["github"]["repos"]]
         self.reviewer = raw.get("reviewer", {})
+        self.intent_command = raw.get("reviewer_intent", {}).get("command") or []
         self.ready_marker = raw.get("ready_marker", "")
         nxt = raw.get("next", {})
         self.clones = [Path(os.path.expanduser(c)) for c in nxt.get("clones", [])]
@@ -303,22 +304,41 @@ class Pulls:
             seen = max(seen, source.get(bare, 0))
         return seen
 
+    def reviewer_said(self, ref):
+        said = list(self.gfacts.get(ref, {}).get("messages", []))
+        texts = self.slack.get("_said") or {}
+        bare = ref.lstrip("abcdefghijklmnopqrstuvwxyz")
+        for key in [ref] + ([bare] if bare != ref and bare not in self.known_refs else []):
+            for ts, text in (texts.get(key) or {}).items():
+                said.append({"id": f"slack:{ts}", "at": float(ts), "state": "SLACK", "text": text})
+        return sorted(said, key=lambda m: (m["at"], m["id"]))
+
     def facts(self, ref, p):
         g = self.gfacts.get(ref, {})
         seen = self.sha_seen.get(ref) or ["", 0]
         requested = self.cfg.reviewer.get("login") in {r["login"] for r in p.get("requested_reviewers", [])}
         pushed = max(iso_ts(self.push_time.get(ref, "")), iso_ts(g.get("pushed", "")), iso_ts(g.get("forced", "")),
                      seen[1] if seen[0] == p.get("head", {}).get("sha") else 0)
-        reviewer = max(iso_ts(self.reviewer_last.get(ref, "")), iso_ts(self.reviewer_review.get(ref, ("", ""))[0]),
-                       iso_ts(g.get("reviewer_last", "")), self.slack_seen(ref, "reviewer"))
+        said = self.reviewer_said(ref)
         slack = self.slack_seen(ref)
         asked = iso_ts(g.get("req_at", ""))
         req_at = asked if requested else 0.0
         if requested and not req_at:
-            req_at = max(reviewer, pushed, 1.0)
-        return {"pushed": pushed, "approved": bool(g.get("approved")), "reviewer": reviewer, "slack": slack,
-                "requested": requested, "req_at": req_at, "asked": asked, "handover": max(slack, req_at),
-                "threads": self.threads.get(ref, 0), "conflict": bool(self.conflict.get(ref)), "draft": bool(p.get("draft"))}
+            req_at = max([m["at"] for m in said] + [pushed, 1.0])
+        handover = max(slack, req_at)
+        verdict, verdict_at, pending = None, 0.0, False
+        for m in said:
+            if m["at"] <= handover:
+                continue
+            label = self.intent.label(m) if getattr(self, "intent", None) else FORCED_INTENT.get(m["state"], "ACTION")
+            if label is None:
+                pending = True
+            elif label in ("ACTION", "DECIDES", "PARK"):
+                verdict, verdict_at = label, m["at"]
+        return {"pushed": pushed, "approved": bool(g.get("approved")), "reviewer": verdict_at, "verdict": verdict,
+                "pending": pending, "slack": slack, "requested": requested, "req_at": req_at, "asked": asked,
+                "handover": handover, "threads": self.threads.get(ref, 0), "conflict": bool(self.conflict.get(ref)),
+                "draft": bool(p.get("draft"))}
 
     def events(self, ref, p):
         f = self.facts(ref, p)
@@ -337,8 +357,14 @@ class Pulls:
             status, why = "conflict", "conflicts with main"
         elif f["approved"] and f["threads"] == 0:
             status, why = "approved", "the reviewer's latest verdict approves the current head"
-        elif f["reviewer"] > f["handover"]:
-            status, why = "fix", "the reviewer spoke after our last hand-over"
+        elif f["verdict"] == "ACTION":
+            status, why = "fix", "the reviewer asked for something after our last hand-over"
+        elif f["verdict"] == "DECIDES":
+            status, why = "decides", "the product owner's decision is pending"
+        elif f["verdict"] == "PARK" and f["pushed"] > f["reviewer"]:
+            status, why = "fix", "we pushed after the reviewer parked it"
+        elif f["verdict"] == "PARK":
+            status, why = "paused", "the reviewer parked it"
         elif f["threads"] > 0 and f["slack"] <= f["pushed"]:
             status, why = "fix", "open threads, not announced since the last push"
         elif f["handover"]:
@@ -381,12 +407,16 @@ def labels(pulls, open_now):
     before = {r["ref"]: r for r in state.get("review") or []}
     out = []
     for ref, (_, p) in sorted(open_now.items(), key=lambda kv: kv[1][1]["created_at"]):
-        if behind(ref, p) and ref in before and time.time() - pulls.held.setdefault(ref, time.time()) < 30:
-            out.append(before[ref])
-            log_label(f"{ref} held at {before[ref]['status']}: REST and GraphQL disagree")
-            continue
-        if pulls.held.pop(ref, None) and behind(ref, p):
-            log_label(f"{ref} released after 30 s of disagreement")
+        unsure = behind(ref, p) or pulls.facts(ref, p)["pending"]
+        if unsure and ref in before:
+            if ref not in pulls.held:
+                pulls.held[ref] = time.time()
+                log_label(f"{ref} held at {before[ref]['status']}: " + ("REST and GraphQL disagree" if behind(ref, p) else "reading the reviewer's latest message"))
+            if time.time() - pulls.held[ref] < 100:
+                out.append(before[ref])
+                continue
+        if pulls.held.pop(ref, None) and unsure:
+            log_label(f"{ref} released after 100 s on unsure data")
         label = pulls.review_state(ref, p)
         if before.get(ref, {}).get("status") != label["status"]:
             log_label(f"{ref} {before.get(ref, {}).get('status')} -> {label['status']} ({label['why']})")
@@ -469,7 +499,7 @@ def slack_latest(cfg):
         params["cursor"] = cursor
     if deep:
         SLACK_DEEP["at"] = time.time()
-    ours, theirs = {}, {}
+    ours, theirs, said = {}, {}, {}
     bump = lambda table, refs, ts: [table.__setitem__(r, max(table.get(r, 0.0), ts)) for r in refs]
     for m in messages:
         refs = slack_refs(cfg, m.get("text"))
@@ -477,6 +507,8 @@ def slack_latest(cfg):
             continue
         if reviewer and m.get("user") == reviewer:
             bump(theirs, refs, float(m["ts"]))
+            for ref in refs:
+                said.setdefault(ref, {})[m["ts"]] = m.get("text") or ""
         elif not me or m.get("user") == me:
             bump(ours, refs, float(m["ts"]))
         if not m.get("latest_reply"):
@@ -490,15 +522,22 @@ def slack_latest(cfg):
         for reply in SLACK_THREADS[key]:
             if reviewer and reply.get("user") == reviewer:
                 bump(theirs, refs, float(reply["ts"]))
+                for ref in refs:
+                    said.setdefault(ref, {})[reply["ts"]] = reply.get("text") or ""
             elif (not me or reply.get("user") == me) and (not mention or mention in (reply.get("text") or "")):
                 bump(ours, refs, float(reply["ts"]))
-    stored = load_json(SLACK_STORE, {"us": {}, "reviewer": {}})
+    stored = load_json(SLACK_STORE, {})
+    for key in ("us", "reviewer", "said"):
+        stored.setdefault(key, {})
+    for ref, texts in said.items():
+        kept = {**stored["said"].get(ref, {}), **texts}
+        stored["said"][ref] = dict(sorted(kept.items(), key=lambda kv: float(kv[0]))[-10:])
     for table, new in ((stored["us"], ours), (stored["reviewer"], theirs)):
         for ref, ts in new.items():
             table[ref] = max(table.get(ref, 0.0), ts)
     SLACK_STORE.parent.mkdir(parents=True, exist_ok=True)
     write_json(SLACK_STORE, stored)
-    return {**stored["us"], "_reviewer": stored["reviewer"]}
+    return {**stored["us"], "_reviewer": stored["reviewer"], "_said": stored["said"]}
 
 
 def pr_health(pulls, repo, number):
@@ -518,17 +557,84 @@ def pr_health(pulls, repo, number):
             green &= c["state"] == "SUCCESS"
             failing |= c["state"] in ("FAILURE", "ERROR")
     login = pulls.cfg.reviewer.get("login")
-    reviews = [(r["submittedAt"], r["state"]) for r in pr["reviews"]["nodes"]
-               if (r.get("author") or {}).get("login") == login and r.get("submittedAt")]
-    spoke = [r[0] for r in reviews] + [c["createdAt"] for c in pr["comments"]["nodes"] if (c.get("author") or {}).get("login") == login]
     asked = [e["createdAt"] for e in pr["asked"]["nodes"] if (e.get("requestedReviewer") or {}).get("login") == login]
     verdict = next((r for r in pr["opinion"]["nodes"] if (r.get("author") or {}).get("login") == login), None)
     facts = {"updated": pr["updatedAt"], "head": pr["headRefOid"], "pushed": commit.get("committedDate", ""),
              "forced": max((e["createdAt"] for e in pr["forced"]["nodes"] if e), default=""),
              "approved": bool(verdict and verdict["state"] == "APPROVED" and (verdict.get("commit") or {}).get("oid") == pr["headRefOid"]),
-             "review": max([r for r in reviews if r[1] in ("APPROVED", "CHANGES_REQUESTED", "COMMENTED")], default=("", "")),
-             "reviewer_last": max(spoke, default=""), "req_at": max(asked, default="")}
+             "messages": reviewer_messages(pr, login),
+             "req_at": max(asked, default="")}
     return green, threads, failing, {"CONFLICTING": True, "MERGEABLE": False}.get(pr.get("mergeable")), facts
+
+
+FORCED_INTENT = {"CHANGES_REQUESTED": "ACTION", "APPROVED": "ACTION"}
+INTENT_LABELS = ("ACTION", "DECIDES", "PARK", "WAIT", "ACK")
+INTENT_CACHE = Path.home() / ".cache/pr-table/intent.json"
+
+
+class Intent:
+    def __init__(self, command):
+        self.command = command
+        self.cache = load_json(INTENT_CACHE, {})
+        self.first_seen, self.queued = {}, set()
+        self.jobs = __import__("queue").Queue()
+        self.lock = threading.Lock()
+        for _ in range(3):
+            threading.Thread(target=self.worker, daemon=True).start()
+
+    def label(self, m):
+        if m["state"] in FORCED_INTENT:
+            return FORCED_INTENT[m["state"]]
+        if not m["text"]:
+            return "ACK"
+        if m["id"] in self.cache:
+            return self.cache[m["id"]]
+        first = self.first_seen.setdefault(m["id"], time.time())
+        with self.lock:
+            if m["id"] not in self.queued:
+                self.queued.add(m["id"])
+                self.jobs.put(m)
+        return "ACTION" if time.time() - first > 90 else None
+
+    def vote(self, prompt):
+        try:
+            out = subprocess.run(self.command + [prompt], capture_output=True, text=True, timeout=120).stdout.strip()
+        except Exception:
+            return None
+        word = (out.split() or [""])[-1].strip(".:*`").upper()
+        return word if word in INTENT_LABELS else None
+
+    def worker(self):
+        while True:
+            m = self.jobs.get()
+            prompt = (ROOT / "prompts" / "reviewer-intent.txt").read_text().replace("{text}", m["text"][:8000])
+            with ThreadPoolExecutor(3) as pool:
+                votes = [v for v in pool.map(lambda _: self.vote(prompt), range(3)) if v]
+            if votes and max(votes.count(v) for v in votes) < 2:
+                with ThreadPoolExecutor(2) as pool:
+                    votes += [v for v in pool.map(lambda _: self.vote(prompt), range(2)) if v]
+            label = max(INTENT_LABELS, key=lambda l: (votes.count(l), -INTENT_LABELS.index(l))) if votes else None
+            with self.lock:
+                if label:
+                    self.cache[m["id"]] = label
+                    INTENT_CACHE.parent.mkdir(parents=True, exist_ok=True)
+                    write_json(INTENT_CACHE, self.cache)
+                self.queued.discard(m["id"])
+            log_label(f"read reviewer message {m['id']} as {label or 'unreadable'} (votes {' '.join(votes)}): {m['text'][:80]!r}")
+            if not label:
+                time.sleep(30)
+
+
+def reviewer_messages(pr, login):
+    said = []
+    for r in pr["reviews"]["nodes"]:
+        if (r.get("author") or {}).get("login") == login and r.get("submittedAt"):
+            text = "\n\n".join([r.get("body") or ""] + [c.get("body") or "" for c in r["comments"]["nodes"]]).strip()
+            said.append({"id": r["id"], "at": iso_ts(r["submittedAt"]), "state": r["state"], "text": text})
+    for c in pr["comments"]["nodes"]:
+        if (c.get("author") or {}).get("login") == login:
+            said.append({"id": c["id"], "at": iso_ts(c["createdAt"]), "state": "COMMENT", "text": (c.get("body") or "").strip()})
+    return said
 
 
 def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
@@ -543,8 +649,10 @@ def ask_verdict(cfg, pulls, ref, repo, p, slack, verdicts):
         return False, "draft", True
     if ref in load_json(DATA / "paused.json", []):
         return False, "paused", True
-    if facts["reviewer"] > facts["handover"]:
-        return False, "the reviewer spoke after our last hand-over", True
+    if facts["pending"]:
+        return False, "reading the reviewer's latest message", False
+    if facts["verdict"]:
+        return False, f"the reviewer's latest message after our hand-over reads as {facts['verdict']}", True
     if cfg.reviewer.get("login") not in requested:
         return False, "reviewer not requested", True
     if cfg.ready_marker and cfg.ready_marker.lower() not in (p.get("body") or "").lower():
@@ -909,6 +1017,10 @@ def main():
         cfg = Config(args.config)
         publish(ui=cfg.ui, **{k: v for k, v in load_json(CACHE, {}).items() if k in state})
         pulls = Pulls(cfg)
+        stored = load_json(SLACK_STORE, {})
+        pulls.slack = {**stored.get("us", {}), "_reviewer": stored.get("reviewer", {}), "_said": stored.get("said", {})}
+        if cfg.intent_command:
+            pulls.intent = Intent(cfg.intent_command)
         threading.Thread(target=github_loop, args=(cfg, pulls), daemon=True).start()
         threading.Thread(target=ask_loop, args=(cfg, pulls), daemon=True).start()
         threading.Thread(target=threads_loop, args=(pulls,), daemon=True).start()

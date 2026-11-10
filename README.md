@@ -49,16 +49,18 @@ Requirements: Python 3.10+ (standard library only), a GitHub token, any modern b
 
 ## What each label means
 
-Every label answers one question: **who has the ball?** A *hand-over* is your last Slack post about the PR, a thread reply of yours that mentions the reviewer, or your last review request. If the reviewer spoke after it (review, comment, top-level Slack post or thread reply), the ball is yours. "Approved" means the reviewer's latest verdict approves the exact commit at the head of the branch, so a new commit or a dismissed approval drops it. The push time is the latest of the commit date, the last force-push and the moment PR Table first saw that commit.
+Every label answers one question: **who has the ball?** A *hand-over* is your last Slack post about the PR, a thread reply of yours that mentions the reviewer, or your last review request. After it, PR Table reads what the reviewer said (reviews, comments, top-level Slack posts and thread replies) and sorts the latest message into one of five meanings: they ask for something, they pass the call to the product owner, they park the PR, they will look later, or they just thank you. Only the first three move the ball. "Approved" means the reviewer's latest verdict approves the exact commit at the head of the branch. The push time is the latest of the commit date, the last force-push and the moment PR Table first saw that commit.
+
+**Reading the reviewer.** Set `reviewer_intent.command` to any command that takes a prompt as its last argument and prints one word, for example `["claude", "-p", "--model", "haiku"]`. Each message is read three times and the majority wins, then cached; while a message is being read, its PR keeps its previous label (at most 100 s). The prompt lives in `prompts/reviewer-intent.txt`. Without a command, anything the reviewer says after your hand-over counts as an ask.
 
 | Label | When | What you do |
 |---|---|---|
 | `📣 post on Slack` (red) | Your reviewer is requested, required checks are green, 0 unresolved threads, the PR description contains your ready marker (`Open points: none` by default), the reviewer has not spoken since your last hand-over, and nobody posted about it on Slack since the last push | Post it. The line disappears within seconds once you do |
-| `nothing · we fix` | The reviewer spoke after your last hand-over, or a review thread is open and you have not announced the PR since the last push | Nothing, your agent is on it |
+| `nothing · we fix` | The reviewer asked for something after your last hand-over, or a review thread is open and you have not announced the PR since the last push | Nothing, your agent is on it |
 | `nothing · waiting for <reviewer>` | You handed it over (requested or posted) and the reviewer has been silent since. Open bot threads no longer count once you announced it after the last push. `#88` in Slack also counts for `w88` | Nothing |
 | `nothing · we finish it` | Never requested, never announced, never reviewed | Nothing |
-| `nothing · <reviewer> decides` | Hand-set in `data/status.json` | Nothing |
-| `paused`, `draft` | `data/paused.json`, or a draft PR | Nothing |
+| `nothing · <reviewer> decides` | The reviewer's latest message passes the call to the product owner, or it is hand-set in `data/status.json` | Nothing |
+| `paused`, `draft` | The reviewer parked the PR (until your next push), `data/paused.json`, or a draft PR | Nothing |
 
 **Hand-set labels expire on their own.** Write `data/status.json` as `{"412": "decides"}` (or `"fix"`, `"waiting"`, `"ask"`) and `data/paused.json` as `["412"]`. PR Table rewrites each entry as `{"label": "decides", "after": "<time>"}` the moment it sees it, and removes it at the first event that makes it false:
 
@@ -118,7 +120,7 @@ Real CC0 recordings, credited in `web/sfx/CREDITS.md`: a stadium crowd on merge,
 
 ## Layout guarantee
 
-The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule: 23 fixed cases, 50,000 random timelines compared with an independent oracle, the expiry of hand-set labels, and Slack parsing:
+The numbers are sized by measuring that every column really fits, from 112 px down to 24 px. Past that, the last rows become `+N more` instead of being cut. `tests/layout_check.py` renders 7 to 22 PRs and fails if any row is cut, and `tests/test_status.py` checks every label rule: 28 fixed cases, 50,000 random timelines compared with an independent oracle, the expiry of hand-set labels, and Slack parsing:
 
 ```bash
 python3 server.py --demo &

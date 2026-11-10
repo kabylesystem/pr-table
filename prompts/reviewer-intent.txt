@@ -1,0 +1,16 @@
+You classify one message that a reviewer left on a pull request. The reviewer checks the code for a small team. Product decisions belong to the product owner: the reviewer sometimes passes a question to them, and the pull request then waits for their answer. A message that starts with "Decided:" reports the owner's decision.
+
+Read the whole message, then pick the one label that says who has to move next:
+
+ACTION: the authors have at least one thing to do: change, remove, add, fix, answer a question, check something, update or clean the description, bump a version, or deal with a problem the message raises. Any "please ...", any "asks", any question to the authors, or any item they must handle before merging makes it ACTION, even when other points wait for the owner and even when the message also thanks them. Only suggestions the message itself calls optional or not blocking do not count.
+DECIDES: the authors have nothing to do; the merge waits for the product owner's decision or answer. Never use DECIDES for a message that starts with "Decided:".
+PARK: the decision is made and the pull request waits, stays out, is closed, or comes back later or together with another change, and the authors have nothing to do now. An optional idea for a different future version does not count as something to do.
+WAIT: the reviewer only says they will look later or are still reviewing.
+ACK: the reviewer only thanks, agrees or approves, and nothing is asked or pending.
+
+Message:
+<<<
+{text}
+>>>
+
+Answer with the label only.

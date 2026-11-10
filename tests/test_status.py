@@ -1,3 +1,4 @@
+import json
 import random
 import sys
 import tempfile
@@ -19,6 +20,16 @@ def iso(t):
     return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ") if t else ""
 
 
+class FakeIntent:
+    def __init__(self, labels):
+        self.labels = labels
+
+    def label(self, m):
+        if m["state"] in server.FORCED_INTENT:
+            return server.FORCED_INTENT[m["state"]]
+        return self.labels.get(m["id"])
+
+
 class FakeCfg:
     reviewer = {"login": REVIEWER}
 
@@ -27,64 +38,92 @@ class FakePulls(server.Pulls):
     def __init__(self):
         self.cfg = FakeCfg()
         self.push_time, self.reviewer_review, self.reviewer_last = {}, {}, {}
-        self.threads, self.slack, self.known_refs = {}, {"_reviewer": {}}, {"412"}
+        self.threads, self.slack, self.known_refs = {}, {"_reviewer": {}, "_said": {}}, {"1911", "1899"}
         self.conflict, self.gfacts, self.open_now, self.sha_seen, self.held = {}, {}, {}, {}, {}
+        self.intent = FakeIntent({})
 
 
-def status(pulls, ref, pr, override=None, paused=False):
-    files = {"status.json": {ref: override} if override else {}, "paused.json": [ref] if paused else []}
+def said(pulls, ref, when, label, where="comment", state="COMMENT"):
+    mid = f"{where}-{when}"
+    if where == "slack":
+        pulls.slack["_said"].setdefault(ref, {})[str(when)] = "text"
+        mid = f"slack:{when}"
+    else:
+        pulls.gfacts[ref].setdefault("messages", []).append({"id": mid, "at": when, "state": state, "text": "text"})
+    if label:
+        pulls.intent.labels[mid] = label
+
+
+def status(pulls, ref, pr, overrides=None, paused=None):
+    files = {"status.json": overrides or {}, "paused.json": list(paused or [])}
     server.load_json = lambda path, default: files.get(Path(path).name, default)
     return pulls.review_state(ref, pr)["status"]
 
 
 PUSH = "2026-11-09T17:00:00Z"
-CASES = [
-    ("requested, nothing else", "waiting", {}),
-    ("open bot thread, not announced", "fix", {"threads": 1}),
-    ("open bot thread, announced after push", "waiting", {"threads": 1, "slack": ts("2026-11-09T18:00:00Z")}),
-    ("announced as #88 for w88", "waiting", {"ref": "w88", "threads": 1, "slack_key": "88", "slack": ts("2026-11-09T18:00:00Z")}),
-    ("announced before the last push", "fix", {"threads": 1, "slack": ts("2026-11-09T16:00:00Z")}),
-    ("reviewer commented after the announcement", "fix", {"threads": 1, "slack": ts("2026-11-09T18:00:00Z"), "comment": "2026-11-09T18:30:00Z"}),
-    ("reviewer asked changes after push", "fix", {"review": ("2026-11-09T17:30:00Z", "CHANGES_REQUESTED")}),
-    ("reviewed, pushed after, not requested", "fix", {"review": ("2026-11-09T16:30:00Z", "COMMENTED"), "requested": False}),
-    ("reviewer commented, then we requested again", "waiting", {"comment": "2026-11-09T18:30:00Z", "requested_at": "2026-11-09T19:00:00Z"}),
-    ("reviewer commented while still requested from before", "fix", {"comment": "2026-11-09T18:30:00Z"}),
-    ("reviewer replied in the Slack thread after our post", "fix", {"slack": ts("2026-11-09T18:00:00Z"), "slack_reviewer": ts("2026-11-09T18:20:00Z")}),
-    ("we answered in the Slack thread after the reviewer", "waiting", {"slack": ts("2026-11-09T18:40:00Z"), "slack_reviewer": ts("2026-11-09T18:20:00Z")}),
-    ("reviewer comment seen only by GraphQL", "fix", {"graphql": "2026-11-09T18:30:00Z"}),
-    ("the reviewer's latest verdict approves the current head", "approved", {"review": ("2026-11-09T17:30:00Z", "APPROVED"), "approved": True}),
-    ("approved head, then the reviewer replied in a resolved thread", "approved", {"review": ("2026-11-09T17:40:00Z", "COMMENTED"), "approved": True}),
-    ("approval dismissed by a new commit", "fix", {"review": ("2026-11-09T17:30:00Z", "APPROVED"), "requested": False}),
-    ("commit dated before the comment but force-pushed after, then re-requested", "waiting", {"comment": "2026-11-09T17:20:00Z", "forced": "2026-11-09T17:25:00Z", "requested_at": "2026-11-09T17:26:00Z"}),
-    ("Slack post between commit date and force-push is not after the push", "fix", {"threads": 1, "slack": ts("2026-11-09T17:10:00Z"), "forced": "2026-11-09T17:20:00Z", "requested": False}),
-    ("hand-set decides", "decides", {"override": "decides", "threads": 1}),
-    ("paused wins", "paused", {"paused": True, "threads": 1}),
-    ("draft", "draft", {"draft": True}),
-    ("conflict with main", "conflict", {"conflict": True}),
-    ("not requested, not announced, never reviewed", "prep", {"requested": False}),
-]
+CASES = []
+
+
+def case(name, want, **setup):
+    CASES.append((name, want, setup))
+
+
+T = lambda hhmm: ts(f"2026-11-09T{hhmm}:00Z")
+case("requested, nothing else", "waiting")
+case("open bot thread, not announced", "fix", threads=1)
+case("open bot thread, announced after push", "waiting", threads=1, slack=T("18:00"))
+case("announced as #114 for w114", "waiting", ref="w114", threads=1, slack_key="114", slack=T("18:00"))
+case("announced before the last push", "fix", threads=1, slack=T("16:00"))
+case("the reviewer asks something after the announcement", "fix", slack=T("18:00"), said=[(T("18:30"), "ACTION")])
+case("the reviewer only thanks after the announcement", "waiting", slack=T("18:00"), said=[(T("18:30"), "ACK")])
+case("the reviewer says he will look tomorrow", "waiting", said=[(T("18:30"), "WAIT")])
+case("the reviewer passes the call to the owner", "decides", said=[(T("18:30"), "DECIDES")])
+case("the reviewer parks it", "paused", said=[(T("18:30"), "PARK")])
+case("we pushed after the reviewer parked it", "fix", said=[(T("16:30"), "PARK")], requested=False, requested_at="", slack=T("16:00"))
+case("ask, then a thank-you: the ask still stands", "fix", said=[(T("18:30"), "ACTION"), (T("18:40"), "ACK")])
+case("ask, then a decision for the owner: the owner decides", "decides", said=[(T("18:30"), "ACTION"), (T("18:40"), "DECIDES")])
+case("the reviewer asked changes after push", "fix", said=[(T("17:30"), None, "review", "CHANGES_REQUESTED")])
+case("the reviewer reviewed before our push, not requested", "fix", said=[(T("16:30"), "ACTION", "review", "COMMENTED")], requested=False)
+case("the reviewer asked, then we requested him again", "waiting", said=[(T("18:30"), "ACTION")], requested_at="2026-11-09T19:00:00Z")
+case("the reviewer asks in the Slack thread after our post", "fix", slack=T("18:00"), said=[(T("18:20"), "ACTION", "slack")])
+case("we answered with @the reviewer after his Slack ask", "waiting", slack=T("18:40"), said=[(T("18:20"), "ACTION", "slack")])
+case("the reviewer's message not read yet: undecided", "pending", said=[(T("18:30"), None)])
+case("conflict with main beats waiting", "conflict", conflict=True)
+case("not requested, not announced, never reviewed", "prep", requested=False)
+case("paused wins", "paused", paused=True, threads=1)
+case("hand-set decides", "decides", override="decides", threads=1)
+case("the reviewer's latest verdict approves the current head", "approved", approved=True)
+case("approved head, then the reviewer asked in a resolved thread", "approved", approved=True, said=[(T("17:40"), "ACTION")])
+case("approval dismissed by our new commit", "fix", said=[(T("16:30"), None, "review", "APPROVED")], requested=False)
+case("commit dated before the reviewer's ask but force-pushed after, then re-requested", "waiting", said=[(T("17:20"), "ACTION")], forced="2026-11-09T17:25:00Z", requested_at="2026-11-09T17:26:00Z")
+case("Slack post between commit date and force-push is not after the push", "fix", threads=1, slack=T("17:10"), forced="2026-11-09T17:20:00Z", requested=False)
+
+
+def build(o):
+    ref = o.get("ref", "1911")
+    pulls = FakePulls()
+    pulls.push_time[ref] = PUSH
+    pulls.threads[ref] = o.get("threads", 0)
+    pulls.conflict[ref] = o.get("conflict", False)
+    requested = o.get("requested") is not False
+    pulls.gfacts[ref] = {"req_at": o.get("requested_at", "2026-11-09T17:10:00Z") if requested else o.get("requested_at", ""),
+                         "approved": o.get("approved", False), "forced": o.get("forced", "")}
+    if "slack" in o:
+        pulls.slack[o.get("slack_key", ref)] = o["slack"]
+    for item in o.get("said", []):
+        said(pulls, ref, *item)
+    pr = {"requested_reviewers": [{"login": REVIEWER}] if requested else [], "draft": o.get("draft", False), "head": {"sha": "abc"}}
+    return ref, pulls, pr
 
 
 def fixed_cases():
     failed = 0
     for name, want, o in CASES:
-        ref = o.get("ref", "412")
-        pulls = FakePulls()
-        pulls.push_time[ref] = PUSH
-        pulls.threads[ref], pulls.conflict[ref] = o.get("threads", 0), o.get("conflict", False)
-        if "slack" in o:
-            pulls.slack[o.get("slack_key", ref)] = o["slack"]
-        if "slack_reviewer" in o:
-            pulls.slack["_reviewer"][ref] = o["slack_reviewer"]
-        if "review" in o:
-            pulls.reviewer_review[ref] = o["review"]
-        if "comment" in o:
-            pulls.reviewer_last[ref] = o["comment"]
-        requested = o.get("requested", True)
-        pulls.gfacts[ref] = {"req_at": o.get("requested_at", "2026-11-09T17:10:00Z") if requested else "", "reviewer_last": o.get("graphql", ""),
-                             "approved": o.get("approved", False), "forced": o.get("forced", "")}
-        pr = {"requested_reviewers": [{"login": REVIEWER}] if requested else [], "draft": o.get("draft", False)}
-        got = status(pulls, ref, pr, o.get("override"), o.get("paused", False))
+        ref, pulls, pr = build(o)
+        if want == "pending":
+            got = "pending" if pulls.facts(ref, pr)["pending"] else "decided"
+        else:
+            got = status(pulls, ref, pr, {ref: o["override"]} if "override" in o else None, [ref] if o.get("paused") else None)
         failed += got != want
         if got != want:
             print(f"FAIL {name}: {got} (want {want})")
@@ -104,9 +143,22 @@ def oracle(e):
     if e["approved"] and e["threads"] == 0:
         return "approved"
     really_pushed = max(e["push"], e["forced"], e["seen"])
-    our_handover = max([e["slack"]] + ([e["requested_at"] or max(e["reviewer"], really_pushed, 1)] if e["requested"] else []))
-    if e["reviewer"] > our_handover:
+    request = 0
+    if e["requested"]:
+        request = e["requested_at"] or max([m[0] for m in e["said"]] + [really_pushed, 1])
+    our_handover = max(e["slack"], request)
+    meaning = {"CHANGES_REQUESTED": "ACTION", "APPROVED": "ACTION"}
+    latest = None
+    for when, label, where, state in sorted(e["said"], key=lambda m: m[0]):
+        label = meaning.get(state, label)
+        if when > our_handover and label in ("ACTION", "DECIDES", "PARK"):
+            latest = (when, label)
+    if latest and latest[1] == "ACTION":
         return "fix"
+    if latest and latest[1] == "DECIDES":
+        return "decides"
+    if latest and latest[1] == "PARK":
+        return "fix" if really_pushed > latest[0] else "paused"
     if e["threads"] and not e["slack"] > really_pushed:
         return "fix"
     return "waiting" if our_handover else "prep"
@@ -115,40 +167,38 @@ def oracle(e):
 def fuzz(rounds=50000, seed=7):
     rng = random.Random(seed)
     base = ts("2026-11-09T12:00:00Z")
-    moment = lambda: rng.choice([0, 0] + [base + 600 * rng.randint(0, 12) for _ in range(4)])
+    moment = lambda: rng.choice([0, 0] + [base + 600 * rng.randint(0, 12) + 7 for _ in range(4)])
     failed = 0
     for _ in range(rounds):
-        ref = "412"
+        ref = "1911"
         e = {"push": base + 600 * rng.randint(0, 12), "forced": moment(), "seen": moment(), "slack": moment(),
-             "slack_reviewer": moment(), "comment": moment(), "graphql": moment(), "requested": rng.random() < .5,
-             "requested_at": moment(), "threads": rng.choice([0, 0, 1, 3]), "conflict": rng.random() < .1,
-             "draft": rng.random() < .1, "paused": rng.random() < .05, "approved": rng.random() < .15,
-             "override": rng.choice([None] * 12 + ["fix", "waiting", "decides"])}
-        r = rng.choice([None, None, "APPROVED", "CHANGES_REQUESTED", "COMMENTED"])
-        e["review"] = (base + 600 * rng.randint(0, 12), r) if r else None
-        e["reviewer"] = max(e["slack_reviewer"], e["comment"], e["graphql"], e["review"][0] if e["review"] else 0)
+             "requested": rng.random() < .5, "requested_at": moment(), "threads": rng.choice([0, 0, 1, 3]),
+             "conflict": rng.random() < .1, "draft": rng.random() < .1, "paused": rng.random() < .05,
+             "approved": rng.random() < .15, "override": rng.choice([None] * 12 + ["fix", "waiting", "decides"])}
+        e["said"] = []
+        for i in range(rng.choice([0, 1, 1, 2, 3])):
+            when = base + 600 * rng.randint(0, 12) + 13 + i
+            where = rng.choice(["comment", "review", "slack"])
+            state = rng.choice(["COMMENTED", "COMMENTED", "CHANGES_REQUESTED", "APPROVED"]) if where == "review" else "COMMENT"
+            e["said"].append((when, rng.choice(["ACTION", "DECIDES", "PARK", "WAIT", "ACK"]), where, state))
         same_sha = rng.random() < .7
         if not e["requested"]:
             e["requested_at"] = 0
         pulls = FakePulls()
         pulls.push_time[ref] = iso(e["push"])
         pulls.threads[ref], pulls.conflict[ref] = e["threads"], e["conflict"]
+        pulls.gfacts[ref] = {"req_at": iso(e["requested_at"]), "approved": e["approved"], "forced": iso(e["forced"])}
         if e["slack"]:
             pulls.slack[ref] = e["slack"]
-        if e["slack_reviewer"]:
-            pulls.slack["_reviewer"][ref] = e["slack_reviewer"]
-        if e["review"]:
-            pulls.reviewer_review[ref] = (iso(e["review"][0]), e["review"][1])
-        if e["comment"]:
-            pulls.reviewer_last[ref] = iso(e["comment"])
+        for item in e["said"]:
+            said(pulls, ref, *item)
         if e["seen"]:
             pulls.sha_seen[ref] = ["abc" if same_sha else "old", e["seen"]]
         if not same_sha:
             e["seen"] = 0
-        pulls.gfacts[ref] = {"req_at": iso(e["requested_at"]), "reviewer_last": iso(e["graphql"]),
-                             "approved": e["approved"], "forced": iso(e["forced"])}
         pr = {"requested_reviewers": [{"login": REVIEWER}] if e["requested"] else [], "draft": e["draft"], "head": {"sha": "abc"}}
-        got, want = status(pulls, ref, pr, e["override"], e["paused"]), oracle(e)
+        got = status(pulls, ref, pr, {ref: e["override"]} if e["override"] else None, [ref] if e["paused"] else None)
+        want = oracle(e)
         if got != want:
             failed += 1
             if failed <= 5:
@@ -171,6 +221,7 @@ def hand_set_expiry():
     for ref in ("412", "409", "410", "413"):
         pulls.push_time[ref] = iso(t0 - 3600)
         pulls.open_now[ref] = ("o/r", {"requested_reviewers": [], "draft": False, "head": {"sha": "abc"}})
+        pulls.gfacts[ref] = {}
     checks = []
     server.expire_hand_set(pulls)
     checks.append(("plain entries are converted and stamped in the file", isinstance(load(status_file)["412"], dict) and "after" in load(paused_file)["410"]))
@@ -178,10 +229,13 @@ def hand_set_expiry():
     pulls.push_time["412"] = iso(t0 + 60)
     server.expire_hand_set(pulls)
     checks.append(("our push does not end 'decides'", "412" in load(status_file)))
-    pulls.reviewer_last["412"] = iso(t0 + 90)
+    said(pulls, "412", t0 + 80, "ACK")
+    server.expire_hand_set(pulls)
+    checks.append(("a thank-you from the reviewer does not end 'decides'", "412" in load(status_file)))
+    said(pulls, "412", t0 + 90, "ACTION")
     server.expire_hand_set(pulls)
     checks.append(("the reviewer speaking ends 'decides'", "412" not in load(status_file)))
-    pulls.reviewer_last["413"] = iso(t0 + 90)
+    said(pulls, "413", t0 + 90, "ACTION")
     server.expire_hand_set(pulls)
     checks.append(("the reviewer speaking does not end 'fix'", "413" in load(status_file)))
     pulls.push_time["413"] = iso(t0 + 120)
@@ -191,7 +245,7 @@ def hand_set_expiry():
     server.expire_hand_set(pulls)
     checks.append(("our Slack post ends 'ask'", "409" not in load(status_file)))
     pulls.slack["410"] = t0 + 130
-    pulls.reviewer_last["410"] = iso(t0 + 130)
+    said(pulls, "410", t0 + 131, "ACTION")
     server.expire_hand_set(pulls)
     checks.append(("Slack and the reviewer do not end a pause", "410" in load(paused_file)))
     pulls.push_time["410"] = iso(t0 + 140)
@@ -236,6 +290,7 @@ def slack_parsing():
         ("our reply hands over only when it mentions the reviewer", seen.get("92") == 170),
         ("a ref in the middle is not an announcement", "93" not in seen),
     ]
+    checks.append(("the reviewer's words are kept for reading", seen["_said"].get("92", {}).get("150") == "rename the flag"))
     history.clear()
     checks.append(("posts that scrolled out are remembered", server.slack_latest(Cfg()).get("88") == 100))
     failed = sum(not ok for _, ok in checks)

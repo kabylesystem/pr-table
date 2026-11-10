@@ -20,6 +20,9 @@
     "assets/crew/crew-4.png"
   ],
   "ready_marker": "Open points: none",
+  "reviewer_intent": {
+    "command": []
+  },
   "next": {
     "clones": ["~/code/api", "~/code/web"],
     "branch_pattern": "^(?:[\\w-]+/)?[a-z]+-(\\d+)-",
