@@ -86,6 +86,7 @@ body.quake { animation: quake .9s cubic-bezier(.36,.07,.19,.97) 3; }
 .col > div { align-self: flex-start; max-width: 100%; }
 .review .n.ask small { font-size: min(34px, calc(var(--n, 112px) * .6)) !important; }
 .review .n.prep small { color: var(--dim); }
+.measuring .n { animation: none !important; }
 .review .n small, .paused-line, .more { text-shadow: 0 0 4px #000, 0 0 12px #000, 0 2px 3px #000; }
 .paused-line { font-size: min(26px, calc(var(--n, 112px) * .45)); color: var(--dim); text-decoration: line-through; padding-top: 6px; }
 .clip { font: inherit; background: none; border: 0; padding: 0 .15em; margin: 0; color: inherit; line-height: 1; border-radius: 8px; transition: transform .15s, background .2s; }
@@ -203,21 +204,75 @@ function fitColumn(c, sizes) {
   return false;
 }
 
+const CAPACITY_STEPS = [12, 16, 20, 24, 30, 40];
+let sizes = null;
+let sizedFor = "";
+let capacity = 12;
+let roomySince = 0;
+
+function templateReview(count) {
+  const ui = (last && last.ui) || {};
+  const LABEL = labels(ui.reviewer || "reviewer");
+  const states = ["conflict", "ci", "waiting", "decides", "ask", "fix", "prep", "draft"];
+  return Array.from({ length: count }, (_, i) => {
+    const st = states[i % states.length];
+    const fig = ui.reviewer_figure && ["ask", "waiting", "decides"].includes(st) ? `<img class="mini" src="${ui.reviewer_figure}" alt="">` : "";
+    const clip = st === "ask" ? `<button class="clip">📋</button>` : "";
+    const wait = st === "waiting" ? `<span class="age"> · 23 h</span>` : "";
+    return `<div class="n ${st}">w999<small>${LABEL[st]}${wait}${clip}${fig}</small></div>`;
+  }).join("") + `<div class="paused-line">paused · w999 · 9999 · w999</div>`;
+}
+
+function measureSizes(rows) {
+  const ids = ["next", "review", "merged"];
+  const saved = Object.fromEntries(ids.map(id => [id, document.getElementById(id).innerHTML]));
+  document.getElementById("review").innerHTML = templateReview(rows);
+  document.getElementById("next").innerHTML = Array.from({ length: 5 }, () => `<div class="n">9999</div>`).join("");
+  document.getElementById("merged").innerHTML = Array.from({ length: 6 }, () => `<div class="n">w999<span class="party-tag">🎉</span></div>`).join("");
+  const cols = document.querySelector(".cols");
+  cols.classList.add("measuring");
+  const range = max => { const out = []; for (let px = max; px >= 24; px -= 4) out.push(px); return out; };
+  fitColumn(cols.querySelector(".col.review"), range(96));
+  const review = parseInt(cols.querySelector(".col.review").style.getPropertyValue("--n")) || 48;
+  const sideMax = Math.min(64, Math.max(36, Math.round(review * 1.3 / 4) * 4));
+  fitColumn(cols.querySelector(".col.next"), range(sideMax));
+  fitColumn(cols.querySelector(".col.merged"), range(sideMax));
+  const out = Object.fromEntries(ids.map(c => [c, cols.querySelector(`.col.${c}`).style.getPropertyValue("--n")]));
+  for (const id of ids) document.getElementById(id).innerHTML = saved[id];
+  cols.classList.remove("measuring");
+  cols.querySelectorAll(".more").forEach(m => m.remove());
+  cols.querySelectorAll(".cut-off").forEach(n => n.classList.remove("cut-off"));
+  return out;
+}
+
 function fit() {
   const cols = document.querySelector(".cols");
   cols.querySelectorAll(".more").forEach(m => m.remove());
   cols.querySelectorAll(".cut-off").forEach(n => n.classList.remove("cut-off"));
-  const range = max => { const out = []; for (let px = max; px >= 24; px -= 4) out.push(px); return out; };
-  const review = cols.querySelector(".col.review");
-  let ok = fitColumn(review, range(96));
-  const reviewPx = parseInt(review.style.getPropertyValue("--n")) || 48;
-  const sideMax = Math.min(64, Math.max(36, Math.round(reviewPx * 1.3 / 4) * 4));
-  cols.querySelectorAll(".col:not(.review)").forEach(c => { ok = fitColumn(c, range(sideMax)) && ok; });
+  const rows = document.querySelectorAll("#review .n").length;
+  const needed = CAPACITY_STEPS.find(c => c >= rows) || CAPACITY_STEPS[CAPACITY_STEPS.length - 1];
+  const lower = CAPACITY_STEPS[CAPACITY_STEPS.indexOf(capacity) - 1];
+  if (needed < capacity && lower && rows <= lower) {
+    roomySince = roomySince || Date.now();
+    if (Date.now() - roomySince > 30 * 60 * 1000) { capacity = needed; sizes = null; roomySince = 0; }
+  } else roomySince = 0;
+  if (needed > capacity) { capacity = needed; sizes = null; }
+  const key = `${innerWidth}x${innerHeight}:${capacity}:${document.fonts.status}`;
+  if (!sizes || key !== sizedFor) { sizes = measureSizes(capacity); sizedFor = key; }
+  let ok = true;
+  for (const c of ["next", "review", "merged"]) {
+    const col = cols.querySelector(`.col.${c}`);
+    col.style.setProperty("--n", sizes[c]);
+    if (col.scrollHeight > col.clientHeight + 1 || col.scrollWidth > col.clientWidth + 1) {
+      const range = []; for (let v = parseInt(sizes[c]) || 48; v >= 24; v -= 4) range.push(v);
+      ok = fitColumn(col, range) && ok;
+    }
+  }
   document.body.classList.toggle("overfull", !ok);
 }
 
-addEventListener("resize", fit);
-document.fonts.ready.then(fit);
+addEventListener("resize", () => { sizes = null; fit(); });
+document.fonts.ready.then(() => { sizes = null; if (last) fit(); });
 
 function tickSync() {
   const el = document.getElementById("sync");
